@@ -78,6 +78,7 @@ import {
 import { fillForDisplay, robustLimit, velocityField } from "./lib/stats";
 import { waterDateIndex, waterMask } from "./lib/water";
 import type { Overlay, Poi, Region } from "./manifest";
+import { type ClickMark, pushClickMark } from "./scene/clickMarks";
 import { createFlight, FlightContext, teleport } from "./scene/flight";
 import { PaintMode } from "./scene/layerMaterial";
 import { Scene } from "./scene/Scene";
@@ -228,6 +229,8 @@ function ExplorerScene() {
 	const compact = useIsCompact();
 	const keys = useKeyboard();
 	const [scienceOpen, setScienceOpen] = useState<ScienceMenuId | null>(null);
+	const [clickMarks, setClickMarks] = useState<ClickMark[]>([]);
+	const clickSeq = useRef(0);
 	const [modelFocus, setModelFocus] = useState<CropId | null>(null);
 	const [compareRejected, setCompareRejected] = useState(false);
 	const labels = useRef(new Map<string, HTMLElement>());
@@ -239,6 +242,12 @@ function ExplorerScene() {
 	const region =
 		manifest.data?.regions.find((r) => r.id === state.regionId) ?? null;
 	const terrain = useQuery(terrainQuery(region));
+	const regionId = region?.id ?? null;
+	const [markRegion, setMarkRegion] = useState<string | null>(regionId);
+	if (markRegion !== regionId) {
+		setMarkRegion(regionId);
+		setClickMarks([]);
+	}
 
 	// Capa de desplazamiento: base del movimiento y del hundimiento 3D.
 	const timelineLayer = displacementLayer(region);
@@ -857,6 +866,9 @@ function ExplorerScene() {
 			),
 		}));
 	const onPick = (col: number, row: number) => {
+		setClickMarks((marks) =>
+			pushClickMark(marks, clickSeq.current++, col, row),
+		);
 		setSelectedPoiId(null);
 		store.actions.setInspected({ col, row });
 		setScienceOpen("punto");
@@ -950,6 +962,7 @@ function ExplorerScene() {
 								bandPalette={raster ? bandPalette : BAND_COLORS}
 								contour={!raster}
 								onPick={onPick}
+								clickMarks={clickMarks}
 								overlays={sceneOverlays}
 								ejidos={ejidos.data ?? []}
 								ejidoLabels={ejidoLabels}
