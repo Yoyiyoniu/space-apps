@@ -54,11 +54,13 @@ export const DEFORM_FACTOR = 2000;
 export type DeformFactor = typeof DEFORM_FACTOR;
 
 export const DEFAULT_LAYER: LayerUiState = { visible: true, opacity: 0.85 };
+/** Antes de conocer el largo de la serie, la fecha activa es la última. */
+export const LAST_DATE_INDEX = Number.MAX_SAFE_INTEGER;
 
 export const initialExplorerState = (regionId = "mexicali"): ExplorerState => ({
 	regionId,
 	layers: {},
-	dateIndex: 0,
+	dateIndex: LAST_DATE_INDEX,
 	playing: true,
 	probe: null,
 	warping: false,
@@ -87,7 +89,7 @@ export function createExplorerStore(initial = initialExplorerState()) {
 			setState((s) => ({
 				...s,
 				regionId,
-				dateIndex: 0,
+				dateIndex: LAST_DATE_INDEX,
 				playing: true,
 				probe: null,
 				inspected: null,
@@ -123,9 +125,11 @@ export function createExplorerStore(initial = initialExplorerState()) {
 		},
 		/** Avance automático (en bucle) durante la reproducción. */
 		advanceDate(dateCount: number) {
-			setState((s) =>
-				dateCount <= 0 ? s : { ...s, dateIndex: (s.dateIndex + 1) % dateCount },
-			);
+			setState((s) => {
+				if (dateCount <= 0) return s;
+				const current = Math.min(s.dateIndex, dateCount - 1);
+				return { ...s, dateIndex: (current + 1) % dateCount };
+			});
 		},
 		setPlaying(playing: boolean) {
 			setState((s) => ({ ...s, playing }));

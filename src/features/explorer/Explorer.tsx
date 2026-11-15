@@ -96,7 +96,8 @@ import {
 import { DateTitle } from "./ui/DateTitle";
 import { EjidoLabels } from "./ui/EjidoLabels";
 import { EventsList } from "./ui/EventsList";
-import { ControlsHint, DataNotice, NoWebGL, WarpOverlay } from "./ui/Overlays";
+import { MeasurementChat } from "./ui/MeasurementChat";
+import { ControlsHint, NoWebGL, WarpOverlay } from "./ui/Overlays";
 import { PoiLabels } from "./ui/PoiLabels";
 import { ScienceMenuBar, type ScienceMenuId } from "./ui/ScienceMenuBar";
 import {
@@ -109,7 +110,6 @@ import {
 	SceneMenu,
 } from "./ui/ScienceMenus";
 import { Timeline } from "./ui/Timeline";
-import { TopBar } from "./ui/TopBar";
 import { ZoneLabels } from "./ui/ZoneLabels";
 
 const fmtShortDate = (iso: string) =>
@@ -1016,14 +1016,22 @@ function ExplorerScene() {
 
 				<WarpOverlay active={state.warping} reducedMotion={reducedMotion} />
 
-				<div className="hud-safe pointer-events-none absolute inset-0 flex flex-col gap-2 sm:gap-3">
-					<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-						<TopBar
-							compact={compact}
-							region={region}
-							exaggeration={exaggeration}
-							notice={<DataNotice source={currentSource} />}
-						/>
+				<div className="hud-safe pointer-events-none absolute inset-0 flex min-h-0 gap-2 sm:gap-3">
+					<MeasurementChat
+						region={region}
+						timelineLayer={timelineLayer}
+						cube={cube.data}
+						cubePending={cube.isPending}
+						cubeFailed={cube.isError}
+						dispIndex={dispIndex}
+						terrain={terrain.data}
+						source={currentSource}
+						cells={pointRows}
+						agriZone={selectedAgri ? agriZoneScience(selectedAgri) : null}
+						events={events.data ?? []}
+						places={region.pois}
+					/>
+					<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 sm:gap-3">
 						<ScienceMenuBar
 							items={scienceItems}
 							openId={scienceOpen}
@@ -1193,48 +1201,50 @@ function ExplorerScene() {
 								),
 							}}
 						/>
-					</div>
 
-					<div className="min-h-0 flex-1" />
+						<div className="min-h-0 flex-1" />
 
-					<div className="flex min-w-0 flex-col items-center gap-2">
-						{dateCount > 0 && currentDate ? (
-							<div className="w-full max-w-2xl">
-								<DateTitle
-									date={fmtShortDate(currentDate)}
-									subtitle={[
-										elapsedText(timelineDates[0], currentDate),
-										currentSource && SOURCE_NAMES[currentSource],
-									]
-										.filter(Boolean)
-										.join(" · ")}
-									announce={!state.playing}
-								/>
-								<Timeline
-									dates={timelineDates}
-									index={Math.min(state.dateIndex, dateCount - 1)}
-									playing={state.playing}
-									onSelect={store.actions.selectDate}
-									onPlaying={store.actions.setPlaying}
-									onAdvance={advance}
-									ready={
-										raster ? Boolean(rasterData.data) : Boolean(activeCube)
-									}
-									note={
-										activeLayer ? timelineNote(view, state.deform3d) : undefined
-									}
-								/>
-							</div>
-						) : (
-							raster?.referenceDate && (
-								<DateTitle
-									date={raster.referenceDate.slice(0, 4)}
-									subtitle="Capa estática, sin línea de tiempo"
-									announce
-								/>
-							)
-						)}
-						<ControlsHint compact={compact} />
+						<div className="flex min-w-0 flex-col items-center gap-2">
+							{dateCount > 0 && currentDate ? (
+								<div className="w-full max-w-2xl">
+									<DateTitle
+										date={fmtShortDate(currentDate)}
+										subtitle={[
+											elapsedText(timelineDates[0], currentDate),
+											currentSource && SOURCE_NAMES[currentSource],
+										]
+											.filter(Boolean)
+											.join(" · ")}
+										announce={!state.playing}
+									/>
+									<Timeline
+										dates={timelineDates}
+										index={Math.min(state.dateIndex, dateCount - 1)}
+										playing={state.playing}
+										onSelect={store.actions.selectDate}
+										onPlaying={store.actions.setPlaying}
+										onAdvance={advance}
+										ready={
+											raster ? Boolean(rasterData.data) : Boolean(activeCube)
+										}
+										note={
+											activeLayer
+												? timelineNote(view, state.deform3d)
+												: undefined
+										}
+									/>
+								</div>
+							) : (
+								raster?.referenceDate && (
+									<DateTitle
+										date={raster.referenceDate.slice(0, 4)}
+										subtitle="Capa estática, sin línea de tiempo"
+										announce
+									/>
+								)
+							)}
+							<ControlsHint compact={compact} />
+						</div>
 					</div>
 				</div>
 			</div>

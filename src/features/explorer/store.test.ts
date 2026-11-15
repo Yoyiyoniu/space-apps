@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	createExplorerStore,
+	LAST_DATE_INDEX,
 	layerUi,
 	overlayOn,
 	viewFingerprint,
@@ -14,7 +15,7 @@ describe("explorer store", () => {
 		store.actions.setRegion("tijuana");
 		expect(store.state).toMatchObject({
 			regionId: "tijuana",
-			dateIndex: 0,
+			dateIndex: LAST_DATE_INDEX,
 			playing: true,
 			probe: null,
 		});

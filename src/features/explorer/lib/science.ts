@@ -19,6 +19,16 @@ import {
 export const NO_DATA_NOTE =
 	"Sin dato. El radar perdió coherencia en esta celda.";
 export const SYNTHETIC_NOTE = "Datos simulados. No son una medición NISAR.";
+export const ASSISTANT_COPY = {
+	outside: "Los datos reunidos no incluyen ese dato.",
+	recent: "La información más reciente que tengo sobre esto es de",
+	unverified:
+		"No muestro esa respuesta: una cifra no está en los datos reunidos.",
+	unavailable: "No puedo responder. El modelo no está configurado.",
+	failed: "No se pudo producir la respuesta.",
+	pending: "Consultando los datos reunidos…",
+	takenFrom: "Datos tomados de",
+} as const;
 export const LOS_SIGN = "Negativo: el suelo se aleja del satélite.";
 export const RELIEF_NOTE =
 	"Ilustrativa. El dato real es el color y los centímetros.";
@@ -72,9 +82,15 @@ export type MeasurementStatus =
 	| "nodata"
 	| "ready";
 
+export type LatestReading = {
+	date: string;
+	displacement: string;
+};
+
 export type MeasurementScience = {
 	status: MeasurementStatus;
 	displacement: string | null;
+	latest: LatestReading | null;
 	rate: string | null;
 	window: string | null;
 	signNote: string;
@@ -100,6 +116,28 @@ export type AgriScience = {
 	thresholds: string[];
 	limits: string[];
 };
+
+export function recentWindowNote(window: string | null): string | null {
+	if (!window) return null;
+	return `${ASSISTANT_COPY.recent} ${window}.`;
+}
+
+/** Última cifra de la serie en o antes de la fecha activa. */
+export function latestSeriesReading(
+	series: Array<number | null>,
+	dates: string[],
+	dateIndex: number,
+): LatestReading | null {
+	const start = Math.min(Math.max(dateIndex, 0), series.length - 1);
+	for (let index = start; index >= 0; index--) {
+		const value = series[index];
+		const date = dates[index];
+		if (value !== null && date) {
+			return { date, displacement: formatMagnitude(value, "cm") };
+		}
+	}
+	return null;
+}
 
 /** Rango de fechas con raya. */
 export function dateRangeLabel(dates: string[]): string | null {
@@ -220,6 +258,9 @@ export function measurementScience(input: {
 		deformExaggeration: `×${input.deformExaggeration}`,
 		synthetic: input.source === "synthetic",
 		methodNote: input.methodNote,
+		latest: input.series
+			? latestSeriesReading(input.series, input.dates, input.dateIndex)
+			: null,
 	};
 	if (!input.probe) {
 		return {

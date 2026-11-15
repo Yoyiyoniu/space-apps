@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Layer, Region } from "../manifest";
 import {
+	ASSISTANT_COPY,
 	agriZoneScience,
 	cellScience,
 	dateRangeLabel,
@@ -181,6 +182,10 @@ describe("measurementScience", () => {
 		});
 		expect(record.status).toBe("nodata");
 		expect(record.rate).toBe("-4.2\u00a0cm/año");
+		expect(record.latest).toEqual({
+			date: "2025-01-01",
+			displacement: "-1.1\u00a0cm",
+		});
 	});
 	it("lista desplazamiento y tasa", () => {
 		const record = measurementScience({
@@ -218,5 +223,9 @@ describe("avisos", () => {
 	it("conserva las frases de método", () => {
 		expect(NO_DATA_NOTE).toContain("coherencia");
 		expect(SYNTHETIC_NOTE).toContain("No son una medición NISAR");
+		expect(ASSISTANT_COPY.outside).toContain("no incluyen");
+		expect(ASSISTANT_COPY.unverified).toContain("No muestro");
+		expect(ASSISTANT_COPY.unavailable).toContain("No puedo responder");
+		expect(ASSISTANT_COPY.failed).toContain("No se pudo producir");
 	});
 });
