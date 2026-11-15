@@ -90,7 +90,7 @@ Interfaz que sí está montada
 
 - `ui/ScienceMenuBar.tsx` — la barra y qué menú está abierto.
 - `ui/ScienceMenus.tsx` — cuerpo de cada menú. `ui/ScienceDisclosure.tsx` — filas.
-- `ui/TopBar.tsx` — título. `ui/Timeline.tsx` y `ui/DateTitle.tsx` — fecha.
+- `ui/TopBar.tsx` — título. `ui/Timeline.tsx` — fecha.
 - `ui/EventsList.tsx` — dentro de Eventos.
 - `ui/PoiLabels.tsx`, `ui/EjidoLabels.tsx`, `ui/ZoneLabels.tsx` — etiquetas sobre el mapa, no menús.
 

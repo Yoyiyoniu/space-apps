@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Pixelify+Sans:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
@@ -417,37 +417,6 @@ html.dark body {
   .warp-overlay.warp-active {
     animation: none;
   }
-}
-
-/* Título de fecha: letras de juego con sombra dura y sin desenfoque */
-.date-title {
-	margin-bottom: 0.5rem;
-	font-family: "Pixelify Sans", var(--font-sans);
-	animation: date-title-in 0.35s ease-out;
-}
-.date-title-main {
-	margin: 0;
-	font-weight: 700;
-	line-height: 1;
-	color: #fff;
-	text-shadow: 0.09em 0.09em 0 #3f3f3f;
-}
-.date-title-sub {
-	margin: 0;
-	font-weight: 600;
-	color: #ffff55;
-	text-shadow: 0.1em 0.1em 0 #3f3f15;
-}
-@keyframes date-title-in {
-	from {
-		opacity: 0.4;
-		transform: scale(1.08);
-	}
-}
-@media (prefers-reduced-motion: reduce) {
-	.date-title {
-		animation: none;
-	}
 }
 
 /* Barras de desplazamiento finas, sin pista gris, para los paneles del explorador. */

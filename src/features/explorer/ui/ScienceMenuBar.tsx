@@ -23,6 +23,7 @@ type ScienceMenuBarProps = {
 	onOpen: (id: ScienceMenuId | null) => void;
 	panels: Partial<Record<ScienceMenuId, React.ReactNode>>;
 	headingExtra?: Partial<Record<ScienceMenuId, string>>;
+	trailing?: React.ReactNode;
 };
 
 const triggerClass = (expanded: boolean) =>
@@ -38,6 +39,7 @@ export const ScienceMenuBar = ({
 	onOpen,
 	panels,
 	headingExtra,
+	trailing,
 }: ScienceMenuBarProps) => {
 	const triggers = useRef<Partial<Record<ScienceMenuId, HTMLButtonElement>>>(
 		{},
@@ -57,31 +59,36 @@ export const ScienceMenuBar = ({
 
 	return (
 		<div className="pointer-events-auto flex min-w-0 flex-col gap-2">
-			<nav
-				aria-label="Fichas científicas"
-				className="flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-			>
-				{items.map((item) => {
-					const expanded = openId === item.id;
-					return (
-						<button
-							key={item.id}
-							type="button"
-							ref={(node) => {
-								if (node) triggers.current[item.id] = node;
-								else delete triggers.current[item.id];
-							}}
-							aria-expanded={expanded}
-							aria-controls={expanded ? `science-panel-${item.id}` : undefined}
-							aria-label={`${item.label}, ${expanded ? "expandido" : "contraído"}`}
-							onClick={() => onOpen(expanded ? null : item.id)}
-							className={triggerClass(expanded)}
-						>
-							{item.label}
-						</button>
-					);
-				})}
-			</nav>
+			<div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+				<nav
+					aria-label="Fichas científicas"
+					className="mr-auto flex w-max max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+				>
+					{items.map((item) => {
+						const expanded = openId === item.id;
+						return (
+							<button
+								key={item.id}
+								type="button"
+								ref={(node) => {
+									if (node) triggers.current[item.id] = node;
+									else delete triggers.current[item.id];
+								}}
+								aria-expanded={expanded}
+								aria-controls={
+									expanded ? `science-panel-${item.id}` : undefined
+								}
+								aria-label={`${item.label}, ${expanded ? "expandido" : "contraído"}`}
+								onClick={() => onOpen(expanded ? null : item.id)}
+								className={triggerClass(expanded)}
+							>
+								{item.label}
+							</button>
+						);
+					})}
+				</nav>
+				{trailing}
+			</div>
 			{openItem && (
 				<Panel
 					id={`science-panel-${openItem.id}`}

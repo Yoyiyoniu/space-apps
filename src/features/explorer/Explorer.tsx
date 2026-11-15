@@ -34,7 +34,6 @@ import {
 	waterBeside,
 	waterLines,
 	withComparison,
-	zoneAt,
 } from "./lib/agriculture";
 import {
 	buildCatalog,
@@ -46,15 +45,9 @@ import {
 	eventView,
 	nearestDateIndex,
 	resolveView,
-	SOURCE_NAMES,
 	sourceAt,
 } from "./lib/catalog";
-import {
-	elapsedText,
-	nearestPoi,
-	TREND_LABELS,
-	trendLevel,
-} from "./lib/friendly";
+import { nearestPoi, TREND_LABELS, trendLevel } from "./lib/friendly";
 import { gridToLonLat, sampleBilinear } from "./lib/grid";
 import {
 	BAND_COLORS,
@@ -93,7 +86,6 @@ import {
 	overlayOn,
 	viewFingerprint,
 } from "./store";
-import { DateTitle } from "./ui/DateTitle";
 import { EjidoLabels } from "./ui/EjidoLabels";
 import { EventsList } from "./ui/EventsList";
 import { MeasurementChat } from "./ui/MeasurementChat";
@@ -111,14 +103,6 @@ import {
 } from "./ui/ScienceMenus";
 import { Timeline } from "./ui/Timeline";
 import { ZoneLabels } from "./ui/ZoneLabels";
-
-const fmtShortDate = (iso: string) =>
-	new Date(`${iso}T12:00:00Z`).toLocaleDateString("es-MX", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-		timeZone: "UTC",
-	});
 
 const NO_COLORS: string[] = [];
 const NO_OVERLAYS: Overlay[] = [];
@@ -493,17 +477,7 @@ function ExplorerScene() {
 		[flight, reducedMotion],
 	);
 
-	// Con movimiento reducido no arranca sola (ni al cambiar de región).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: region?.id es el disparador
-	useEffect(() => {
-		if (reducedMotion) store.actions.setPlaying(false);
-	}, [reducedMotion, region?.id]);
-
 	const dateCount = timelineDates.length;
-	const advance = useCallback(
-		() => store.actions.advanceDate(dateCount),
-		[dateCount],
-	);
 	// Infraestructura: tramos resaltados según la fecha.
 	const overlayList = (region?.overlays ?? NO_OVERLAYS).filter(
 		(overlay): overlay is Overlay & { kind: "road" | "canal" | "river" } =>
@@ -856,16 +830,6 @@ function ExplorerScene() {
 				wayHit?.overlayId === overlay.id ? wayHit.feature : null,
 			),
 		}));
-	const onPick = (col: number, row: number) => {
-		setSelectedPoiId(null);
-		store.actions.setInspected({ col, row });
-		setScienceOpen("punto");
-		if (!agriMap || !landData.data) return;
-		const zone = zoneAt(agriMap, landData.data, region.width, col, row);
-		if (!zone) return;
-		setCompareRejected(false);
-		store.actions.setAgriZone(zone.id);
-	};
 	const goToEvent = (event: ImpactEvent) => {
 		const next = catalog.find((entry) => entry.view === eventView(event.type));
 		if (next) {
@@ -877,7 +841,6 @@ function ExplorerScene() {
 				),
 			);
 		}
-		store.actions.setPlaying(false);
 		setSelectedPoiId(null);
 		flight.target = { col: event.col, row: event.row };
 	};
@@ -949,7 +912,6 @@ function ExplorerScene() {
 								bands={rasterBands ?? zoneData?.bands ?? null}
 								bandPalette={raster ? bandPalette : BAND_COLORS}
 								contour={!raster}
-								onPick={onPick}
 								overlays={sceneOverlays}
 								ejidos={ejidos.data ?? []}
 								ejidoLabels={ejidoLabels}
@@ -1016,236 +978,212 @@ function ExplorerScene() {
 
 				<WarpOverlay active={state.warping} reducedMotion={reducedMotion} />
 
-				<div className="hud-safe pointer-events-none absolute inset-0 flex min-h-0 gap-2 sm:gap-3">
-					<MeasurementChat
-						region={region}
-						timelineLayer={timelineLayer}
-						cube={cube.data}
-						cubePending={cube.isPending}
-						cubeFailed={cube.isError}
-						dispIndex={dispIndex}
-						terrain={terrain.data}
-						source={currentSource}
-						cells={pointRows}
-						agriZone={selectedAgri ? agriZoneScience(selectedAgri) : null}
-						events={events.data ?? []}
-						places={region.pois}
-					/>
-					<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 sm:gap-3">
-						<ScienceMenuBar
-							items={scienceItems}
-							openId={scienceOpen}
-							onOpen={setScienceOpen}
-							headingExtra={{
-								punto: inspected
-									? `${inspectLat.toFixed(4)}°, ${inspectLon.toFixed(4)}°`
-									: undefined,
-							}}
-							panels={{
-								medicion: (
-									<LiveMeasurement
-										region={region}
-										cube={cube.data}
-										cubePending={cube.isPending}
-										cubeFailed={cube.isError}
-										timelineLayer={timelineLayer}
-										dispIndex={dispIndex}
-										terrain={terrain.data}
-										source={currentSource}
-									/>
-								),
-								capas: (
-									<LayersMenu
-										catalog={catalog}
-										active={item}
-										onSelect={selectItem}
-										displacement={timelineLayer}
-										visible={mainUi.visible}
-										loading={Boolean(raster) && rasterData.isPending}
-										failed={Boolean(raster) && rasterData.isError}
-										fieldLimit={fieldLimit}
-										zoneCount={zoneData?.zones.length ?? 0}
-									/>
-								),
-								punto: (
-									<PointMenu
-										inspected={Boolean(inspected)}
-										place={
-											inspected
-												? (nearestPoi(
-														region.pois,
-														inspected.col,
-														inspected.row,
-														region.cellSizeM,
-													)?.text ?? null)
-												: null
-										}
-										coords={
-											inspected
-												? `${inspectLat.toFixed(4)}°, ${inspectLon.toFixed(4)}°`
-												: null
-										}
-										rows={pointRows}
-									/>
-								),
-								cultivos: (
-									<CropsMenu
-										missingCover={!landLayer || landData.isError}
-										loading={!landData.data && landData.isPending}
-										listed={agriList.listed}
-										selected={selectedAgri}
-										rejected={compareRejected}
-										record={selectedAgri ? agriZoneScience(selectedAgri) : null}
-										moisture={selectedSeries[moistureIndex] ?? null}
-										dates={moistureLayer?.dates ?? []}
-										activeIndex={moistureIndex}
-										selectedSeries={selectedSeries}
-										columns={compareColumns.map((column, index) => ({
-											...column,
-											values: compared.columns[index] ?? column.values,
-										}))}
-										vegetation={
-											selectedAgri && hvLayer
-												? vegetationWord(
-														selectedAgri.cells,
-														asInt16(hvQ.data),
-														signalIndex(hvLayer.dates),
-														agriPlane,
-														hvLayer.scale,
-														hvLayer.nodata,
-													)
-												: null
-										}
-										change={
-											selectedAgri && changeLayer
-												? changeWord(
-														selectedAgri.cells,
-														asBytes(changeQ.data),
-														signalIndex(changeLayer.dates),
-														agriPlane,
-														changeLayer.nodata,
-													)
-												: null
-										}
-										disturbance={
-											selectedAgri && disturbanceLayer
-												? disturbanceWord(
-														selectedAgri.cells,
-														asBytes(disturbanceQ.data),
-														signalIndex(disturbanceLayer.dates),
-														agriPlane,
-														disturbanceLayer.nodata,
-													)
-												: null
-										}
-										water={agriWater}
-										onSelect={(id) => {
-											setCompareRejected(false);
-											setSelectedPoiId(null);
-											store.actions.setAgriZone(id);
-										}}
-										onCompare={(id) => {
-											if (state.agriZoneId === null) {
-												setCompareRejected(false);
-												store.actions.setAgriZone(id);
-												return;
-											}
-											const next = withComparison(
-												state.agriZoneId,
-												state.agriCompare,
-												id,
-											);
-											setCompareRejected(next.rejected);
-											if (!next.rejected)
-												store.actions.setAgriCompare(next.extras);
-										}}
-										onRemove={(id) => {
-											setCompareRejected(false);
-											store.actions.setAgriCompare(
-												state.agriCompare.filter((itemId) => itemId !== id),
-											);
-										}}
-									/>
-								),
-								eventos: (
-									<EventsList events={events.data ?? []} onSelect={goToEvent} />
-								),
-								metodo: <MethodMenu />,
-								procedencia: (
-									<ProvenanceMenu
-										region={region}
-										layer={raster ?? activeLayer ?? timelineLayer}
-									/>
-								),
-								escena: (
-									<SceneMenu
-										layerVisible={mainUi.visible}
-										onLayerVisible={(visible) =>
-											store.actions.setLayerVisible(MAIN_LAYER, visible)
-										}
-										opacity={mainUi.opacity}
-										onOpacity={(value) =>
-											store.actions.setLayerOpacity(MAIN_LAYER, value)
-										}
-										overlays={overlayModels.map((overlay) => ({
-											id: overlay.id,
-											name: overlay.name,
-											on: overlayOn(state, overlay.id),
-											km: overlayBands ? overlay.km : null,
-										}))}
-										onOverlay={store.actions.setOverlay}
-										hasWater={Boolean(waterLayer)}
-										waterMotion={state.waterMotion}
-										onWaterMotion={store.actions.setWaterMotion}
-									/>
-								),
-							}}
+				<div className="hud-safe pointer-events-none absolute inset-0 flex min-h-0 flex-col gap-2 sm:gap-3">
+					<div className="flex min-h-0 min-w-0 flex-1 gap-2 sm:gap-3">
+						<MeasurementChat
+							region={region}
+							timelineLayer={timelineLayer}
+							cube={cube.data}
+							cubePending={cube.isPending}
+							cubeFailed={cube.isError}
+							dispIndex={dispIndex}
+							terrain={terrain.data}
+							source={currentSource}
+							cells={pointRows}
+							agriZone={selectedAgri ? agriZoneScience(selectedAgri) : null}
+							events={events.data ?? []}
+							places={region.pois}
 						/>
+						<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 sm:gap-3">
+							<ScienceMenuBar
+								items={scienceItems}
+								openId={scienceOpen}
+								onOpen={setScienceOpen}
+								trailing={<ControlsHint compact={compact} />}
+								headingExtra={{
+									punto: inspected
+										? `${inspectLat.toFixed(4)}°, ${inspectLon.toFixed(4)}°`
+										: undefined,
+								}}
+								panels={{
+									medicion: (
+										<LiveMeasurement
+											region={region}
+											cube={cube.data}
+											cubePending={cube.isPending}
+											cubeFailed={cube.isError}
+											timelineLayer={timelineLayer}
+											dispIndex={dispIndex}
+											terrain={terrain.data}
+											source={currentSource}
+										/>
+									),
+									capas: (
+										<LayersMenu
+											catalog={catalog}
+											active={item}
+											onSelect={selectItem}
+											displacement={timelineLayer}
+											visible={mainUi.visible}
+											loading={Boolean(raster) && rasterData.isPending}
+											failed={Boolean(raster) && rasterData.isError}
+											fieldLimit={fieldLimit}
+											zoneCount={zoneData?.zones.length ?? 0}
+										/>
+									),
+									punto: (
+										<PointMenu
+											inspected={Boolean(inspected)}
+											place={
+												inspected
+													? (nearestPoi(
+															region.pois,
+															inspected.col,
+															inspected.row,
+															region.cellSizeM,
+														)?.text ?? null)
+													: null
+											}
+											coords={
+												inspected
+													? `${inspectLat.toFixed(4)}°, ${inspectLon.toFixed(4)}°`
+													: null
+											}
+											rows={pointRows}
+										/>
+									),
+									cultivos: (
+										<CropsMenu
+											missingCover={!landLayer || landData.isError}
+											loading={!landData.data && landData.isPending}
+											listed={agriList.listed}
+											selected={selectedAgri}
+											rejected={compareRejected}
+											record={
+												selectedAgri ? agriZoneScience(selectedAgri) : null
+											}
+											moisture={selectedSeries[moistureIndex] ?? null}
+											dates={moistureLayer?.dates ?? []}
+											activeIndex={moistureIndex}
+											selectedSeries={selectedSeries}
+											columns={compareColumns.map((column, index) => ({
+												...column,
+												values: compared.columns[index] ?? column.values,
+											}))}
+											vegetation={
+												selectedAgri && hvLayer
+													? vegetationWord(
+															selectedAgri.cells,
+															asInt16(hvQ.data),
+															signalIndex(hvLayer.dates),
+															agriPlane,
+															hvLayer.scale,
+															hvLayer.nodata,
+														)
+													: null
+											}
+											change={
+												selectedAgri && changeLayer
+													? changeWord(
+															selectedAgri.cells,
+															asBytes(changeQ.data),
+															signalIndex(changeLayer.dates),
+															agriPlane,
+															changeLayer.nodata,
+														)
+													: null
+											}
+											disturbance={
+												selectedAgri && disturbanceLayer
+													? disturbanceWord(
+															selectedAgri.cells,
+															asBytes(disturbanceQ.data),
+															signalIndex(disturbanceLayer.dates),
+															agriPlane,
+															disturbanceLayer.nodata,
+														)
+													: null
+											}
+											water={agriWater}
+											onSelect={(id) => {
+												setCompareRejected(false);
+												setSelectedPoiId(null);
+												store.actions.setAgriZone(id);
+											}}
+											onCompare={(id) => {
+												if (state.agriZoneId === null) {
+													setCompareRejected(false);
+													store.actions.setAgriZone(id);
+													return;
+												}
+												const next = withComparison(
+													state.agriZoneId,
+													state.agriCompare,
+													id,
+												);
+												setCompareRejected(next.rejected);
+												if (!next.rejected)
+													store.actions.setAgriCompare(next.extras);
+											}}
+											onRemove={(id) => {
+												setCompareRejected(false);
+												store.actions.setAgriCompare(
+													state.agriCompare.filter((itemId) => itemId !== id),
+												);
+											}}
+										/>
+									),
+									eventos: (
+										<EventsList
+											events={events.data ?? []}
+											onSelect={goToEvent}
+										/>
+									),
+									metodo: <MethodMenu />,
+									procedencia: (
+										<ProvenanceMenu
+											region={region}
+											layer={raster ?? activeLayer ?? timelineLayer}
+										/>
+									),
+									escena: (
+										<SceneMenu
+											layerVisible={mainUi.visible}
+											onLayerVisible={(visible) =>
+												store.actions.setLayerVisible(MAIN_LAYER, visible)
+											}
+											opacity={mainUi.opacity}
+											onOpacity={(value) =>
+												store.actions.setLayerOpacity(MAIN_LAYER, value)
+											}
+											overlays={overlayModels.map((overlay) => ({
+												id: overlay.id,
+												name: overlay.name,
+												on: overlayOn(state, overlay.id),
+												km: overlayBands ? overlay.km : null,
+											}))}
+											onOverlay={store.actions.setOverlay}
+											hasWater={Boolean(waterLayer)}
+											waterMotion={state.waterMotion}
+											onWaterMotion={store.actions.setWaterMotion}
+										/>
+									),
+								}}
+							/>
 
-						<div className="min-h-0 flex-1" />
-
-						<div className="flex min-w-0 flex-col items-center gap-2">
-							{dateCount > 0 && currentDate ? (
-								<div className="w-full max-w-2xl">
-									<DateTitle
-										date={fmtShortDate(currentDate)}
-										subtitle={[
-											elapsedText(timelineDates[0], currentDate),
-											currentSource && SOURCE_NAMES[currentSource],
-										]
-											.filter(Boolean)
-											.join(" · ")}
-										announce={!state.playing}
-									/>
-									<Timeline
-										dates={timelineDates}
-										index={Math.min(state.dateIndex, dateCount - 1)}
-										playing={state.playing}
-										onSelect={store.actions.selectDate}
-										onPlaying={store.actions.setPlaying}
-										onAdvance={advance}
-										ready={
-											raster ? Boolean(rasterData.data) : Boolean(activeCube)
-										}
-										note={
-											activeLayer
-												? timelineNote(view, state.deform3d)
-												: undefined
-										}
-									/>
-								</div>
-							) : (
-								raster?.referenceDate && (
-									<DateTitle
-										date={raster.referenceDate.slice(0, 4)}
-										subtitle="Capa estática, sin línea de tiempo"
-										announce
-									/>
-								)
-							)}
-							<ControlsHint compact={compact} />
+							<div className="min-h-0 flex-1" />
 						</div>
 					</div>
+					{dateCount > 0 && currentDate && (
+						<Timeline
+							dates={timelineDates}
+							index={Math.min(state.dateIndex, dateCount - 1)}
+							onSelect={store.actions.selectDate}
+							note={
+								activeLayer ? timelineNote(view, state.deform3d) : undefined
+							}
+						/>
+					)}
 				</div>
 			</div>
 		</FlightContext.Provider>

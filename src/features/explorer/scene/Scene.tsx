@@ -91,7 +91,6 @@ export interface SceneProps {
 	bands: Uint8Array | null;
 	bandPalette: string[];
 	contour: boolean;
-	onPick: (col: number, row: number) => void;
 	overlays: Array<{
 		id: string;
 		kind: "road" | "canal" | "river";
@@ -147,7 +146,6 @@ export function Scene(props: SceneProps) {
 			<IsoCamera
 				regionSize={Math.max(region.width, region.height)}
 				reducedMotion={props.reducedMotion}
-				onPick={props.onPick}
 			/>
 			<Terrain
 				region={region}

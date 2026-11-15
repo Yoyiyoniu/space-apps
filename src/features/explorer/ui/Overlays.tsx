@@ -241,7 +241,7 @@ export function WarpOverlay({
 
 export function ControlsHint({ compact }: { compact: boolean }) {
 	return (
-		<p className="pointer-events-none rounded-xl bg-slate-950/60 px-3 py-1.5 text-pretty text-xs text-slate-300 backdrop-blur">
+		<p className="pointer-events-none flex h-11 shrink-0 items-center rounded-xl border border-white/10 bg-slate-950/75 px-3 text-pretty text-xs leading-tight text-slate-300 shadow-lg backdrop-blur-md">
 			{compact ? (
 				"Toca el terreno para volar · pellizca para zoom"
 			) : (

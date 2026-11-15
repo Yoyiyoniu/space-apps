@@ -8,7 +8,7 @@ import {
 } from "./store";
 
 describe("explorer store", () => {
-	it("cambiar de región reinicia la línea de tiempo y vuelve a reproducir", () => {
+	it("cambiar de región reinicia la línea de tiempo", () => {
 		const store = createExplorerStore();
 		store.actions.selectDate(5);
 		store.actions.setProbe({ col: 1, row: 1, lon: 0, lat: 0 });
@@ -16,26 +16,14 @@ describe("explorer store", () => {
 		expect(store.state).toMatchObject({
 			regionId: "tijuana",
 			dateIndex: LAST_DATE_INDEX,
-			playing: true,
 			probe: null,
 		});
 	});
 
-	it("mover el slider pausa la reproducción", () => {
+	it("elegir una fecha cambia el índice", () => {
 		const store = createExplorerStore();
-		store.actions.setPlaying(true);
 		store.actions.selectDate(3);
-		expect(store.state.playing).toBe(false);
 		expect(store.state.dateIndex).toBe(3);
-	});
-
-	it("la reproducción avanza en bucle", () => {
-		const store = createExplorerStore();
-		store.actions.selectDate(2);
-		store.actions.advanceDate(3);
-		expect(store.state.dateIndex).toBe(0);
-		store.actions.advanceDate(3);
-		expect(store.state.dateIndex).toBe(1);
 	});
 
 	it("visibilidad y opacidad por capa y región", () => {
@@ -94,7 +82,6 @@ describe("explorer store", () => {
 			mapView: "cumulative",
 			deform3d: true,
 			deformFactor: 2000,
-			playing: true,
 		});
 		store.actions.setMapView("zones");
 		store.actions.setRegion("tijuana");

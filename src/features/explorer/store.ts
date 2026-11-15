@@ -20,7 +20,6 @@ export interface ExplorerState {
 	/** Estado de UI por `${regionId}/${layerId}`. */
 	layers: Record<string, LayerUiState>;
 	dateIndex: number;
-	playing: boolean;
 	probe: ProbeReading | null;
 	warping: boolean;
 	/** Lo que muestra el mapa; una sola vista a la vez. */
@@ -61,7 +60,6 @@ export const initialExplorerState = (regionId = "mexicali"): ExplorerState => ({
 	regionId,
 	layers: {},
 	dateIndex: LAST_DATE_INDEX,
-	playing: true,
 	probe: null,
 	warping: false,
 	mapView: "cumulative",
@@ -90,7 +88,6 @@ export function createExplorerStore(initial = initialExplorerState()) {
 				...s,
 				regionId,
 				dateIndex: LAST_DATE_INDEX,
-				playing: true,
 				probe: null,
 				inspected: null,
 				agriZoneId: null,
@@ -115,24 +112,11 @@ export function createExplorerStore(initial = initialExplorerState()) {
 				};
 			});
 		},
-		/** Selección manual en el slider: pausa la reproducción. */
 		selectDate(index: number) {
 			setState((s) => ({
 				...s,
 				dateIndex: Math.max(0, Math.round(index)),
-				playing: false,
 			}));
-		},
-		/** Avance automático (en bucle) durante la reproducción. */
-		advanceDate(dateCount: number) {
-			setState((s) => {
-				if (dateCount <= 0) return s;
-				const current = Math.min(s.dateIndex, dateCount - 1);
-				return { ...s, dateIndex: (current + 1) % dateCount };
-			});
-		},
-		setPlaying(playing: boolean) {
-			setState((s) => ({ ...s, playing }));
 		},
 		setProbe(probe: ProbeReading | null) {
 			setState((s) => (sameProbe(s.probe, probe) ? s : { ...s, probe }));
@@ -227,7 +211,6 @@ export function viewFingerprint(s: ExplorerState) {
 		s.waterMotion ? 1 : 0,
 		s.agriZoneId ?? "",
 		s.agriCompare.join(","),
-		s.playing ? 1 : 0,
 		s.warping ? 1 : 0,
 		s.inspected ? `${s.inspected.col},${s.inspected.row}` : "",
 		JSON.stringify(s.layers),
