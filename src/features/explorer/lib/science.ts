@@ -40,6 +40,7 @@ export const ASSISTANT_COPY = {
 	askDescription:
 		"Escribe aquí tu pregunta sobre el hundimiento, la fecha o el punto que estás viendo.",
 	askPlaceholder: "Escribe aquí tu pregunta",
+	askMore: "También puedes preguntar",
 	askPrompts: [
 		"De todo el mapa, ¿cuáles zonas se han hundido más?",
 		"¿Cuánto se movió el suelo en este punto?",

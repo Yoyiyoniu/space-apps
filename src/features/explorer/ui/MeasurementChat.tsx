@@ -107,6 +107,38 @@ async function readAskStream(
 	}
 }
 
+const SuggestedPrompts = ({
+	asked,
+	disabled,
+	onPick,
+}: {
+	asked: readonly string[];
+	disabled: boolean;
+	onPick: (question: string) => void;
+}) => {
+	const used = new Set(asked.map((question) => question.trim().toLowerCase()));
+	const remaining = ASSISTANT_COPY.askPrompts.filter(
+		(question) => !used.has(question.trim().toLowerCase()),
+	);
+	if (remaining.length === 0) return null;
+	return (
+		<ul className="flex w-full flex-col gap-1.5 text-left">
+			{remaining.map((question) => (
+				<li key={question}>
+					<button
+						className="w-full rounded-md border border-white/10 bg-slate-950/40 px-2.5 py-1.5 text-left text-xs leading-snug text-slate-200 transition-colors hover:bg-slate-800 disabled:pointer-events-none disabled:opacity-50"
+						disabled={disabled}
+						onClick={() => onPick(question)}
+						type="button"
+					>
+						{question}
+					</button>
+				</li>
+			))}
+		</ul>
+	);
+};
+
 type MeasurementChatProps = {
 	region: Region;
 	timelineLayer: Layer | null;
@@ -251,44 +283,54 @@ export const MeasurementChat = ({
 									{ASSISTANT_COPY.askDescription}
 								</p>
 							</div>
-							<ul className="flex w-full flex-col gap-1.5 text-left">
-								{ASSISTANT_COPY.askPrompts.map((question) => (
-									<li key={question}>
-										<button
-											className="w-full rounded-md border border-white/10 bg-slate-950/40 px-2.5 py-1.5 text-left text-xs leading-snug text-slate-200 transition-colors hover:bg-slate-800"
-											onClick={() => send(question)}
-											type="button"
-										>
-											{question}
-										</button>
-									</li>
-								))}
-							</ul>
+							<SuggestedPrompts
+								asked={[]}
+								disabled={thread.pending}
+								onPick={send}
+							/>
 						</ConversationEmptyState>
 					) : (
-						thread.messages.map((message) => {
-							const waiting =
-								thread.pending &&
-								message.role === "assistant" &&
-								message.id === lastId;
-							return (
-								<Message from={message.role} key={message.id}>
-									<MessageContent>
-										<p className="whitespace-pre-wrap">
-											{message.text || (waiting ? ASSISTANT_COPY.pending : "")}
-											{waiting && (
-												<span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-cyan-300 align-[-2px]" />
+						<>
+							{thread.messages.map((message) => {
+								const waiting =
+									thread.pending &&
+									message.role === "assistant" &&
+									message.id === lastId;
+								return (
+									<Message from={message.role} key={message.id}>
+										<MessageContent>
+											<p className="whitespace-pre-wrap">
+												{message.text ||
+													(waiting ? ASSISTANT_COPY.pending : "")}
+												{waiting && (
+													<span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-cyan-300 align-[-2px]" />
+												)}
+											</p>
+											{message.sources.length > 0 && (
+												<footer className="mt-2 border-t border-white/10 pt-1.5 text-xs leading-snug text-slate-400">
+													{ASSISTANT_COPY.takenFrom}{" "}
+													{message.sources.join(" · ")}
+												</footer>
 											)}
-										</p>
-										{message.sources.length > 0 && (
-											<footer className="mt-2 border-t border-white/10 pt-1.5 text-xs leading-snug text-slate-400">
-												{ASSISTANT_COPY.takenFrom} {message.sources.join(" · ")}
-											</footer>
-										)}
-									</MessageContent>
-								</Message>
-							);
-						})
+										</MessageContent>
+									</Message>
+								);
+							})}
+							{!thread.pending && (
+								<div className="space-y-1.5 px-1 pb-1">
+									<p className="text-muted-foreground text-xs">
+										{ASSISTANT_COPY.askMore}
+									</p>
+									<SuggestedPrompts
+										asked={thread.messages
+											.filter((message) => message.role === "user")
+											.map((message) => message.text)}
+										disabled={false}
+										onPick={send}
+									/>
+								</div>
+							)}
+						</>
 					)}
 				</ConversationContent>
 				<ConversationScrollButton />

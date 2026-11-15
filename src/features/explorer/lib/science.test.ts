@@ -370,6 +370,7 @@ describe("avisos", () => {
 		expect(ASSISTANT_COPY.askTitle).toContain("mediciones");
 		expect(ASSISTANT_COPY.askDescription).toContain("Escribe aquí tu pregunta");
 		expect(ASSISTANT_COPY.askPlaceholder).toBe("Escribe aquí tu pregunta");
+		expect(ASSISTANT_COPY.askMore).toContain("preguntar");
 		expect(ASSISTANT_COPY.askPrompts[0]).toContain("hundido más");
 		expect(ASSISTANT_COPY.noZoneRank).toContain("ranking");
 	});
