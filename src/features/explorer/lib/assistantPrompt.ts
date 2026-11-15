@@ -21,5 +21,8 @@ export const systemPrompt = (records: PacketRecord[]) =>
 		synthetic_note: SYNTHETIC_NOTE,
 		recent: ASSISTANT_COPY.recent,
 		coverage: AGRI_COPY.coverage,
+		prompts: ASSISTANT_COPY.askPrompts
+			.map((question) => `- ${question}`)
+			.join("\n"),
 		records: JSON.stringify(records),
 	});

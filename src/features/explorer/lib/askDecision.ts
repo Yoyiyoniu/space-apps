@@ -1,10 +1,10 @@
 /** Decide la respuesta sin llamar a la red. El handler de Bedrock solo la usa. */
 import { z } from "zod";
 import { AGRI_COPY } from "./agriculture";
-import { answerCheck } from "./answerCheck";
+import { answerCheck, keepGroundedSentences } from "./answerCheck";
 import { systemPrompt } from "./assistantPrompt";
 import { type PacketKind, sourceParts } from "./readingPacket";
-import { ASSISTANT_COPY, SYNTHETIC_NOTE } from "./science";
+import { ASSISTANT_COPY, isZoneRankQuestion, SYNTHETIC_NOTE } from "./science";
 
 export const MISTRAL_LARGE_3_MODEL_ID = "mistral.mistral-large-3-675b-instruct";
 export const ASK_MAX_TOKENS = 1024;
@@ -123,17 +123,45 @@ export type AskEvent =
 	| { type: "delta"; text: string }
 	| { type: "done"; result: AskResult };
 
+/** Ranking de zonas: se copia del registro, sin el modelo. */
+export function recordAnswer(input: AskInput): AskResult | null {
+	if (!isZoneRankQuestion(input.question)) return null;
+	const record = input.records.find(
+		(item) => item.id === "zonas-desplazamiento",
+	);
+	if (!record) {
+		return {
+			status: "answer",
+			text: ASSISTANT_COPY.noZoneRank,
+			citations: [],
+			sources: [],
+		};
+	}
+	return {
+		status: "answer",
+		text: record.text,
+		citations: [record.id],
+		sources: sourceParts(input.records, [record.id]),
+	};
+}
+
 const checkedAnswer = (input: AskInput, raw: string): AskResult => {
 	const parsed = parseDraft(raw);
 	if (!parsed.answer.trim()) return fixed("failed", ASSISTANT_COPY.failed);
-	const verdict = answerCheck(input.records, parsed.answer);
+	let text = parsed.answer;
+	let verdict = answerCheck(input.records, text);
 	if (!verdict.ok && verdict.reason === "missing") {
 		console.error("Cifra fuera del paquete", verdict.token);
-		return fixed("unverified", ASSISTANT_COPY.unverified);
+		const grounded = keepGroundedSentences(input.records, text);
+		if (!grounded) return fixed("unverified", ASSISTANT_COPY.unverified);
+		text = grounded;
+		verdict = answerCheck(input.records, text);
+		if (!verdict.ok && verdict.reason === "missing") {
+			return fixed("unverified", ASSISTANT_COPY.unverified);
+		}
 	}
 	const known = new Set(input.records.map((record) => record.id));
 	const citations = parsed.citations.filter((id) => known.has(id));
-	let text = parsed.answer;
 	if (!verdict.ok && verdict.reason === "label") {
 		if (verdict.labels.includes("hypothesis")) text = `Hipótesis. ${text}`;
 		if (verdict.labels.includes("synthetic"))
@@ -153,6 +181,11 @@ export async function* runAskStream(
 	env: AskEnv,
 	invoke: (request: ConverseRequest) => AsyncIterable<string>,
 ): AsyncGenerator<AskEvent> {
+	const ready = recordAnswer(input);
+	if (ready) {
+		yield { type: "done", result: ready };
+		return;
+	}
 	const region = regionOf(env);
 	if (!region) {
 		yield {

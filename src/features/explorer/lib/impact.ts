@@ -36,14 +36,20 @@ export const BAND_NAMES: Record<BandValue, string> = {
 export const MIN_ZONE_KM2 = 1;
 export const MAX_LABELED_ZONES = 5;
 export const MIN_DATES_ACCELERATION = 4;
+export const BAND_LIMITS = {
+	high: -10,
+	mid: -5,
+	low: -2,
+	up: 2,
+} as const;
 const SMOOTH_RADIUS = 2;
 
 export function classify(cm: number): BandValue {
 	if (Number.isNaN(cm)) return Band.NODATA;
-	if (cm <= -10) return Band.HIGH;
-	if (cm <= -5) return Band.MID;
-	if (cm <= -2) return Band.LOW;
-	if (cm >= 2) return Band.UP;
+	if (cm <= BAND_LIMITS.high) return Band.HIGH;
+	if (cm <= BAND_LIMITS.mid) return Band.MID;
+	if (cm <= BAND_LIMITS.low) return Band.LOW;
+	if (cm >= BAND_LIMITS.up) return Band.UP;
 	return Band.NONE;
 }
 
@@ -122,6 +128,17 @@ export interface Zone {
 	meanVelocity: number | null;
 	/** Índices de sus celdas, para cruzarla con población y uso de suelo. */
 	cells: number[];
+}
+
+/** Hundimiento, del más bajo al menos bajo. El mapa sigue ordenando por área. */
+export function rankedSubsidenceZones(
+	zones: Zone[],
+	cap = MAX_LABELED_ZONES,
+): Zone[] {
+	return zones
+		.filter((zone) => zone.kind === "down")
+		.sort((a, b) => a.valueCm - b.valueCm)
+		.slice(0, cap);
 }
 
 /** Personas y uso de suelo predominante dentro de una zona. */

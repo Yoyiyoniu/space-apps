@@ -9,6 +9,7 @@ import {
 	datePlane,
 	differentialField,
 	differentialReading,
+	rankedSubsidenceZones,
 	zoneContext,
 	zoneMap,
 	zoneReading,
@@ -94,6 +95,18 @@ describe("zoneMap", () => {
 		expect(zoneMap(new Float32Array(36), W, 6, velocity, 1000).zones).toEqual(
 			[],
 		);
+	});
+
+	it("el ranking de hundimiento pone primero el extremo más bajo", () => {
+		const { zones } = zoneMap(field, W, 6, velocity, 1000);
+		const shallow: (typeof zones)[number] = {
+			...zones[0],
+			kind: "down",
+			valueCm: -3,
+		};
+		const ranked = rankedSubsidenceZones([zones[1], shallow, zones[0]], 2);
+		expect(ranked.map((zone) => zone.valueCm)).toEqual([-12, -3]);
+		expect(ranked.every((zone) => zone.kind === "down")).toBe(true);
 	});
 
 	it("velocidad media null si no hay velocidades válidas", () => {

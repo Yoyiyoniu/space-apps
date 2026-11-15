@@ -13,13 +13,25 @@ const normalize = (text: string) =>
 const escapeRegExp = (text: string) =>
 	text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const dateParts = (date: string) => {
+	const [year, month, day] = date.split("-");
+	return [year, String(Number(month)), String(Number(day))];
+};
+
 const tokens = (text: string) => {
 	const normalized = normalize(text).replace(/^\s*\d+[.)]\s+/gm, "");
 	const dates = [...normalized.matchAll(DATE)].map((match) => match[0]);
 	const rest = normalized.replace(DATE, " ");
 	const numbers = [...rest.matchAll(NUMBER)].map((match) => match[0]);
-	return [...dates, ...numbers];
+	return [...dates, ...dates.flatMap(dateParts), ...numbers];
 };
+
+const sentences = (text: string) =>
+	text
+		.split(/\n+/)
+		.flatMap((paragraph) => paragraph.split(/(?<=\.)\s+/))
+		.map((piece) => piece.trim())
+		.filter(Boolean);
 
 const forms = (token: string) => {
 	const swapped = token.includes(",")
@@ -35,6 +47,20 @@ const occurs = (haystack: string, token: string) => {
 			normalized,
 		),
 	);
+};
+
+/** Misma cantidad: -12 y -12.0, 9 y 9.00, coma o punto. No agrupa miles. */
+const asNumber = (token: string) => {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(token)) return null;
+	if (token.includes(",") && token.includes(".")) return null;
+	const value = Number(token.replace(",", "."));
+	return Number.isFinite(value) ? value : null;
+};
+
+const sameNumber = (left: string, right: string) => {
+	const a = asNumber(left);
+	const b = asNumber(right);
+	return a !== null && b !== null && Object.is(a, b);
 };
 
 export type AnswerLabel = "synthetic" | "crop" | "hypothesis";
@@ -58,11 +84,19 @@ export function answerCheck(
 	draft: string,
 ): AnswerVerdict {
 	const claimed = tokens(draft);
+	const packed = records.map((record) => ({
+		record,
+		parts: tokens(record.text),
+	}));
 	let synthetic = false;
 	for (const token of claimed) {
-		const hosts = records.filter((record) => occurs(record.text, token));
+		const hosts = packed.filter(
+			(item) =>
+				occurs(item.record.text, token) ||
+				item.parts.some((part) => sameNumber(part, token)),
+		);
 		if (hosts.length === 0) return { ok: false, reason: "missing", token };
-		if (hosts.every((record) => record.synthetic)) synthetic = true;
+		if (hosts.every((item) => item.record.synthetic)) synthetic = true;
 	}
 	const labels: AnswerLabel[] = [];
 	if (synthetic && !draft.includes(SYNTHETIC_NOTE)) labels.push("synthetic");
@@ -87,4 +121,17 @@ export function answerCheck(
 	}
 	if (labels.length === 0) return { ok: true };
 	return { ok: false, reason: "label", labels };
+}
+
+/** Quita frases con una cifra ausente; si no queda nada, null. */
+export function keepGroundedSentences(
+	records: PacketRecord[],
+	draft: string,
+): string | null {
+	const kept = sentences(draft).filter((piece) => {
+		const verdict = answerCheck(records, piece);
+		return verdict.ok || (verdict.ok === false && verdict.reason === "label");
+	});
+	const text = kept.join(" ").trim();
+	return text.length > 0 ? text : null;
 }

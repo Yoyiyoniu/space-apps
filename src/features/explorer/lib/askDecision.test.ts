@@ -3,6 +3,7 @@ import {
 	ASK_MAX_TOKENS,
 	AskSchema,
 	MISTRAL_LARGE_3_MODEL_ID,
+	recordAnswer,
 	runAsk,
 } from "./askDecision";
 import type { PacketRecord } from "./readingPacket";
@@ -43,6 +44,39 @@ describe("AskSchema", () => {
 	});
 });
 
+describe("recordAnswer", () => {
+	it("lista las zonas del registro sin llamar al modelo", async () => {
+		const ranked: PacketRecord = {
+			id: "zonas-desplazamiento",
+			kind: "measurement",
+			text: "En 2025-10-25 estas son las zonas.\n- Hundimiento alto. Extremo: -12.0 cm.",
+			synthetic: true,
+			label: "Zonas de hundimiento",
+		};
+		const invoke = vi.fn();
+		const result = await runAsk(
+			{
+				question: "De todo el mapa, ¿cuáles zonas se han hundido más?",
+				records: [ranked],
+				history: [],
+			},
+			{},
+			invoke,
+		);
+		expect(invoke).not.toHaveBeenCalled();
+		expect(result.status).toBe("answer");
+		expect(result.text).toContain("-12.0");
+		expect(result.citations).toEqual(["zonas-desplazamiento"]);
+		expect(
+			recordAnswer({
+				question: "¿Qué significan los colores?",
+				records: [ranked],
+				history: [],
+			}),
+		).toBeNull();
+	});
+});
+
 describe("runAsk", () => {
 	it("no llama a la red si falta la región", async () => {
 		const invoke = vi.fn();
@@ -74,6 +108,16 @@ describe("runAsk", () => {
 		expect(rejected.status).toBe("unverified");
 		expect(rejected.text).toBe(ASSISTANT_COPY.unverified);
 		expect(rejected.text).not.toContain("99");
+
+		const trimmed = await runAsk(input, { AWS_REGION: "us-east-1" }, async () =>
+			JSON.stringify({
+				answer: "La fecha es 2025-10-01. Bajó 99 cm.",
+				citations: ["medicion"],
+			}),
+		);
+		expect(trimmed.status).toBe("answer");
+		expect(trimmed.text).toContain("2025-10-01");
+		expect(trimmed.text).not.toContain("99");
 
 		const failed = await runAsk(input, { AWS_REGION: "us-east-1" }, () => {
 			throw new Error("bedrock");

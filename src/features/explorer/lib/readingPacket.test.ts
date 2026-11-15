@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Layer } from "../manifest";
 import { METHOD_SECTIONS } from "../ui/Overlays";
 import { AGRI_COPY } from "./agriculture";
+import { Band } from "./impact";
 import { CROP_VARIANTS } from "./mapModels";
 import { PACKET_TEXT_MAX, readingPacket, sourceParts } from "./readingPacket";
 import {
 	cellScience,
+	IMPACT_AGRI_NOTE,
+	impactZoneRankScience,
+	impactZoneScience,
 	layerScience,
 	measurementScience,
 	NO_DATA_NOTE,
@@ -183,5 +187,56 @@ describe("readingPacket", () => {
 			"Qué es SAR",
 			"ajena",
 		]);
+	});
+
+	it("copia el ranking de hundimiento y no las celdas", () => {
+		const zone = impactZoneScience(
+			{
+				band: Band.HIGH,
+				valueCm: -12,
+				areaKm2: 9,
+				meanVelocity: -4,
+			},
+			{
+				rank: 1,
+				date: "2025-10-25",
+				people: 1200,
+				landUse: "Cultivos",
+				place: "Sobre Cerro Prieto",
+				synthetic: true,
+			},
+		);
+		const records = readingPacket({
+			layers: [],
+			measurement: null,
+			cells: [],
+			methods: [],
+			agriZone: null,
+			motionZones: [zone],
+			motionRank: impactZoneRankScience({
+				date: "2025-10-25",
+				zones: [zone],
+				synthetic: true,
+			}),
+			events: [],
+			places: [],
+			cropLabels: [],
+		});
+		const ranked = records.find(
+			(record) => record.id === "zonas-desplazamiento",
+		);
+		const listed = records.find((record) => record.id === "zona-mov-0");
+		expect(ranked?.text).toContain("-12.0");
+		expect(ranked?.text).toContain(IMPACT_AGRI_NOTE);
+		expect(ranked?.text).not.toContain(SYNTHETIC_NOTE);
+		expect(ranked?.label).toBe("Zonas de hundimiento");
+		expect(listed?.text).toContain("Hundimiento alto");
+		expect(
+			records.find((record) => record.id === "zonas-umbrales")?.text,
+		).toContain("10, 5 y 2");
+		expect(listed?.text).not.toContain("cells");
+		expect(
+			records.every((record) => record.text.length <= PACKET_TEXT_MAX),
+		).toBe(true);
 	});
 });

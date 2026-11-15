@@ -1,5 +1,21 @@
 import { useSelector } from "@tanstack/react-store";
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { MessageSquare } from "lucide-react";
+import { useMemo, useReducer, useState } from "react";
+import {
+	Conversation,
+	ConversationContent,
+	ConversationEmptyState,
+	ConversationScrollButton,
+} from "#/components/ai-elements/conversation";
+import { Message, MessageContent } from "#/components/ai-elements/message";
+import {
+	PromptInput,
+	PromptInputBody,
+	PromptInputFooter,
+	type PromptInputMessage,
+	PromptInputSubmit,
+	PromptInputTextarea,
+} from "#/components/ai-elements/prompt-input";
 import type { ImpactEvent } from "../data/queries";
 import {
 	type ChatAction,
@@ -15,6 +31,8 @@ import {
 	type AgriScience,
 	ASSISTANT_COPY,
 	type CellScience,
+	type ImpactZoneRankScience,
+	type ImpactZoneScience,
 	layerScience,
 	measurementScience,
 } from "../lib/science";
@@ -100,6 +118,8 @@ type MeasurementChatProps = {
 	source: Layer["source"] | null;
 	cells: CellScience[];
 	agriZone: AgriScience | null;
+	motionZones: ImpactZoneScience[];
+	motionRank: ImpactZoneRankScience | null;
 	events: ImpactEvent[];
 	places: Poi[];
 };
@@ -115,6 +135,8 @@ export const MeasurementChat = ({
 	source,
 	cells,
 	agriZone,
+	motionZones,
+	motionRank,
 	events,
 	places,
 }: MeasurementChatProps) => {
@@ -125,7 +147,6 @@ export const MeasurementChat = ({
 	);
 	const [thread, dispatch] = useReducer(chatReducer, initialChatState);
 	const [draft, setDraft] = useState("");
-	const logRef = useRef<HTMLDivElement>(null);
 	const records = useMemo(() => {
 		const series =
 			timelineLayer && cube && probe
@@ -162,6 +183,8 @@ export const MeasurementChat = ({
 			cells,
 			methods: METHOD_SECTIONS,
 			agriZone,
+			motionZones,
+			motionRank,
 			events,
 			places,
 			cropLabels: CROP_VARIANTS.map((variant) => variant.label),
@@ -179,16 +202,11 @@ export const MeasurementChat = ({
 		source,
 		cells,
 		agriZone,
+		motionZones,
+		motionRank,
 		events,
 		places,
 	]);
-
-	useEffect(() => {
-		const log = logRef.current;
-		if (!log) return;
-		const bottom = thread.messages.length + (thread.pending ? 1 : 0);
-		if (bottom >= 0) log.scrollTop = log.scrollHeight;
-	}, [thread.messages, thread.pending]);
 
 	const send = (question: string) => {
 		const trimmed = question.trim();
@@ -205,72 +223,93 @@ export const MeasurementChat = ({
 		void readAskStream({ question: trimmed, records, history }, dispatch);
 	};
 
+	const lastId = thread.messages.at(-1)?.id;
+	const onSubmit = (message: PromptInputMessage) => {
+		send(message.text);
+	};
+
 	return (
 		<Panel
 			aria-label="Conversación sobre las mediciones"
 			className="flex h-full min-h-0 w-[min(24rem,42vw)] min-w-64 shrink-0 flex-col overflow-hidden"
 		>
-			<div
-				ref={logRef}
-				role="log"
+			<Conversation
 				aria-live="polite"
 				aria-relevant="additions"
 				aria-busy={thread.pending}
-				className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 text-sm leading-relaxed"
+				className="min-h-0"
 			>
-				{thread.messages.map((message) => (
-					<div
-						key={message.id}
-						className={
-							message.role === "user"
-								? "ml-8 rounded-2xl rounded-br-md bg-cyan-400/15 px-3 py-2 text-slate-50"
-								: "mr-8 rounded-2xl rounded-bl-md bg-white/10 px-3 py-2 text-slate-200"
-						}
-					>
-						<p className="whitespace-pre-wrap">
-							{message.text ||
-								(thread.pending &&
+				<ConversationContent className="gap-3 p-3 text-sm leading-relaxed">
+					{thread.messages.length === 0 ? (
+						<ConversationEmptyState className="p-4">
+							<MessageSquare className="size-8 text-muted-foreground" />
+							<div className="space-y-1">
+								<h3 className="font-medium text-sm">
+									{ASSISTANT_COPY.askTitle}
+								</h3>
+								<p className="text-muted-foreground text-sm">
+									{ASSISTANT_COPY.askDescription}
+								</p>
+							</div>
+							<ul className="flex w-full flex-col gap-1.5 text-left">
+								{ASSISTANT_COPY.askPrompts.map((question) => (
+									<li key={question}>
+										<button
+											className="w-full rounded-md border border-white/10 bg-slate-950/40 px-2.5 py-1.5 text-left text-xs leading-snug text-slate-200 transition-colors hover:bg-slate-800"
+											onClick={() => send(question)}
+											type="button"
+										>
+											{question}
+										</button>
+									</li>
+								))}
+							</ul>
+						</ConversationEmptyState>
+					) : (
+						thread.messages.map((message) => {
+							const waiting =
+								thread.pending &&
 								message.role === "assistant" &&
-								message.id === thread.messages.at(-1)?.id
-									? ASSISTANT_COPY.pending
-									: "")}
-							{thread.pending &&
-								message.role === "assistant" &&
-								message.id === thread.messages.at(-1)?.id && (
-									<span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-cyan-300 align-[-2px]" />
-								)}
-						</p>
-						{message.sources.length > 0 && (
-							<footer className="mt-2 border-t border-white/10 pt-1.5 text-xs leading-snug text-slate-400">
-								{ASSISTANT_COPY.takenFrom} {message.sources.join(" · ")}
-							</footer>
-						)}
-					</div>
-				))}
-			</div>
-			<form
-				className="flex gap-2 border-t border-white/10 p-2"
-				onSubmit={(event) => {
-					event.preventDefault();
-					send(draft);
-				}}
-			>
-				<input
-					value={draft}
-					onChange={(event) => setDraft(event.target.value)}
-					placeholder="Pregunta lo que quieras sobre este valle"
-					aria-label="Pregunta sobre el valle y las mediciones"
-					maxLength={500}
-					className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-3 text-sm text-slate-100 outline-none placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-cyan-300"
-				/>
-				<button
-					type="submit"
-					disabled={thread.pending || draft.trim().length === 0}
-					className="inline-flex h-11 shrink-0 items-center rounded-xl bg-cyan-400 px-3 text-sm font-semibold text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:opacity-50"
-				>
-					Preguntar
-				</button>
-			</form>
+								message.id === lastId;
+							return (
+								<Message from={message.role} key={message.id}>
+									<MessageContent>
+										<p className="whitespace-pre-wrap">
+											{message.text || (waiting ? ASSISTANT_COPY.pending : "")}
+											{waiting && (
+												<span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-cyan-300 align-[-2px]" />
+											)}
+										</p>
+										{message.sources.length > 0 && (
+											<footer className="mt-2 border-t border-white/10 pt-1.5 text-xs leading-snug text-slate-400">
+												{ASSISTANT_COPY.takenFrom} {message.sources.join(" · ")}
+											</footer>
+										)}
+									</MessageContent>
+								</Message>
+							);
+						})
+					)}
+				</ConversationContent>
+				<ConversationScrollButton />
+			</Conversation>
+			<PromptInput className="p-2" onSubmit={onSubmit}>
+				<PromptInputBody>
+					<PromptInputTextarea
+						aria-label={ASSISTANT_COPY.askPlaceholder}
+						maxLength={500}
+						onChange={(event) => setDraft(event.currentTarget.value)}
+						placeholder={ASSISTANT_COPY.askPlaceholder}
+						value={draft}
+					/>
+				</PromptInputBody>
+				<PromptInputFooter className="justify-end">
+					<PromptInputSubmit
+						disabled={thread.pending || draft.trim().length === 0}
+						status={thread.pending ? "streaming" : "ready"}
+					/>
+				</PromptInputFooter>
+			</PromptInput>
 		</Panel>
 	);
 };

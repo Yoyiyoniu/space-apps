@@ -25,6 +25,8 @@ describe("assistantPrompt", () => {
 		expect(prompt).toContain("Valle de Mexicali");
 		expect(prompt).toContain("ayudante");
 		expect(prompt).toContain("Frases cortas");
+		expect(prompt).toContain("zonas-desplazamiento");
+		expect(prompt).toContain(ASSISTANT_COPY.askPrompts[0]);
 		expect(prompt).toContain(SYNTHETIC_NOTE);
 		expect(prompt).toContain(ASSISTANT_COPY.recent);
 		expect(prompt).toContain(AGRI_COPY.coverage);

@@ -54,6 +54,7 @@ import {
 	createImpactAnalysis,
 	MAX_LABELED_ZONES,
 	MIN_DATES_ACCELERATION,
+	rankedSubsidenceZones,
 	zoneContext,
 } from "./lib/impact";
 import {
@@ -66,6 +67,8 @@ import { linearRate, readSeries } from "./lib/probe";
 import {
 	agriZoneScience,
 	cellScience,
+	impactZoneRankScience,
+	impactZoneScience,
 	measurementScience,
 } from "./lib/science";
 import { fillForDisplay, robustLimit, velocityField } from "./lib/stats";
@@ -270,9 +273,9 @@ function ExplorerScene() {
 	// Vistas de impacto: lo que pinta el mapa según el selector.
 	const impact = useMemo(
 		() =>
-			region && timelineLayer && activeCube && velocity
+			region && timelineLayer && cube.data && velocity
 				? createImpactAnalysis(
-						activeCube,
+						cube.data,
 						{
 							width: region.width,
 							height: region.height,
@@ -284,10 +287,11 @@ function ExplorerScene() {
 						region.cellSizeM,
 					)
 				: null,
-		[region, timelineLayer, activeCube, velocity],
+		[region, timelineLayer, cube.data, velocity],
 	);
 	const view = item?.view ?? "cumulative";
-	const zoneData = view === "zones" ? (impact?.zones(dispIndex) ?? null) : null;
+	const motionZoneMap = impact?.zones(dispIndex) ?? null;
+	const zoneData = view === "zones" ? motionZoneMap : null;
 	const zones = zoneData?.zones.slice(0, MAX_LABELED_ZONES) ?? [];
 
 	// Plano de una capa raster en la fecha actual.
@@ -532,7 +536,7 @@ function ExplorerScene() {
 	const landLayer = region?.layers.find((l) => l.id === "landcover") ?? null;
 	const popData = useQuery({
 		...rasterQuery(region, popLayer),
-		enabled: Boolean(popLayer) && view === "zones",
+		enabled: Boolean(popLayer) && Boolean(impact),
 	});
 	const landData = useQuery({
 		...rasterQuery(region, landLayer),
@@ -679,6 +683,36 @@ function ExplorerScene() {
 
 	const shownLayer = raster ?? activeLayer;
 	const currentSource = shownLayer ? sourceAt(shownLayer, currentDate) : null;
+	const displacementSource = timelineLayer
+		? sourceAt(timelineLayer, currentDate)
+		: null;
+	const motionZones = rankedSubsidenceZones(motionZoneMap?.zones ?? []).map(
+		(zone, index) => {
+			const ctx = zoneContext(
+				zone,
+				popData.data ?? null,
+				landData.data ?? null,
+				landNames,
+			);
+			return impactZoneScience(zone, {
+				rank: index + 1,
+				date: timelineLayer?.dates[dispIndex] ?? null,
+				people: ctx.people,
+				landUse: ctx.landUse,
+				place:
+					nearestPoi(region.pois, zone.col, zone.row, region.cellSizeM)?.text ??
+					null,
+				synthetic: displacementSource === "synthetic",
+			});
+		},
+	);
+	const motionRank = impact
+		? impactZoneRankScience({
+				date: timelineLayer?.dates[dispIndex] ?? null,
+				zones: motionZones,
+				synthetic: displacementSource === "synthetic",
+			})
+		: null;
 
 	const inspected = state.inspected;
 	const rasterLayers = region.layers.filter((layer) => layer.type === "raster");
@@ -991,6 +1025,8 @@ function ExplorerScene() {
 							source={currentSource}
 							cells={pointRows}
 							agriZone={selectedAgri ? agriZoneScience(selectedAgri) : null}
+							motionZones={motionZones}
+							motionRank={motionRank}
 							events={events.data ?? []}
 							places={region.pois}
 						/>

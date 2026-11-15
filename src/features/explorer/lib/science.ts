@@ -15,6 +15,14 @@ import {
 	readLayer,
 	sourceAt,
 } from "./catalog";
+import {
+	BAND_LIMITS,
+	BAND_NAMES,
+	type BandValue,
+	MIN_ZONE_KM2 as IMPACT_MIN_KM2,
+	MAX_LABELED_ZONES,
+	type Zone,
+} from "./impact";
 
 export const NO_DATA_NOTE =
 	"Sin dato. El radar perdió coherencia en esta celda.";
@@ -28,10 +36,29 @@ export const ASSISTANT_COPY = {
 	failed: "No se pudo producir la respuesta.",
 	pending: "Consultando los datos reunidos…",
 	takenFrom: "Datos tomados de",
+	askTitle: "Consulta las mediciones",
+	askDescription:
+		"Escribe aquí tu pregunta sobre el hundimiento, la fecha o el punto que estás viendo.",
+	askPlaceholder: "Escribe aquí tu pregunta",
+	askPrompts: [
+		"De todo el mapa, ¿cuáles zonas se han hundido más?",
+		"¿Cuánto se movió el suelo en este punto?",
+		"¿Qué significan los colores del mapa?",
+		"¿De dónde salen estos datos?",
+		"¿Por qué se hunde Cerro Prieto?",
+		"¿El relieve del mapa está exagerado?",
+		"¿Qué cultivos hay en el valle?",
+		"¿Qué eventos hay en estas fechas?",
+	],
+	noZoneRank:
+		"Todavía no tengo el ranking de hundimiento de esta fecha. Cuando esté el cubo te listo las zonas.",
 } as const;
 export const LOS_SIGN = "Negativo: el suelo se aleja del satélite.";
 export const RELIEF_NOTE =
 	"Ilustrativa. El dato real es el color y los centímetros.";
+export const IMPACT_AGRI_NOTE =
+	"Estas zonas de hundimiento no son las zonas agrícolas del menú Cultivos.";
+export const ZONE_RATE_MISSING = "velocidad no disponible";
 
 export const SCIENCE_SOURCES: Record<Layer["source"], string> = {
 	nisar: "NISAR",
@@ -115,6 +142,28 @@ export type AgriScience = {
 	coverClass: string;
 	thresholds: string[];
 	limits: string[];
+};
+
+export type ImpactZoneScience = {
+	rank: number;
+	band: string;
+	displacement: string;
+	areaKm2: string;
+	rate: string;
+	date: string | null;
+	people: string | null;
+	landUse: string | null;
+	place: string | null;
+	synthetic: boolean;
+	agriNote: string;
+};
+
+export type ImpactZoneRankScience = {
+	date: string | null;
+	empty: boolean;
+	lines: string[];
+	agriNote: string;
+	synthetic: boolean;
 };
 
 export function recentWindowNote(window: string | null): string | null {
@@ -326,6 +375,16 @@ export function measurementScience(input: {
 	};
 }
 
+export function impactBandNotes(): string[] {
+	return [
+		`Hundimiento alto: ${formatMagnitude(BAND_LIMITS.high, "cm")} o menos.`,
+		`Hundimiento medio: ${formatMagnitude(BAND_LIMITS.mid, "cm")} o menos.`,
+		`Hundimiento bajo: ${formatMagnitude(BAND_LIMITS.low, "cm")} o menos.`,
+		`Zona más alta: ${formatMagnitude(BAND_LIMITS.up, "cm")} o más.`,
+		"Umbrales en centímetros: 10, 5 y 2.",
+	];
+}
+
 export function agriThresholdNotes(): string[] {
 	return [
 		`Vegetación: ${HV_DELTA_DB} dB de HV en al menos el ${Math.round(SIGNAL_SHARE * 100)} % de las celdas.`,
@@ -345,4 +404,100 @@ export function agriZoneScience(zone: AgriZone): AgriScience {
 		thresholds: agriThresholdNotes(),
 		limits: [AGRI_COPY.coverage, AGRI_COPY.noAdvice, AGRI_COPY.noCause],
 	};
+}
+
+const peopleLabel = (people: number) =>
+	`≈ ${Number(people.toPrecision(2))} personas`;
+
+const zoneLine = (zone: ImpactZoneScience) =>
+	[
+		`${zone.rank}. ${zone.band}. Extremo: ${zone.displacement}. Área: ${zone.areaKm2}. ${zone.rate}.`,
+		zone.place,
+		zone.people,
+		zone.landUse && `Principalmente ${zone.landUse.toLowerCase()}`,
+	]
+		.filter((part): part is string => Boolean(part))
+		.join(" ");
+
+export function impactZoneScience(
+	zone: Pick<Zone, "band" | "valueCm" | "areaKm2" | "meanVelocity">,
+	extras: {
+		rank: number;
+		date: string | null;
+		people: number | null;
+		landUse: string | null;
+		place: string | null;
+		synthetic: boolean;
+	},
+): ImpactZoneScience {
+	return {
+		rank: extras.rank,
+		band: BAND_NAMES[zone.band as BandValue],
+		displacement: formatMagnitude(zone.valueCm, "cm"),
+		areaKm2: `${zone.areaKm2.toFixed(2)}\u00a0km²`,
+		rate:
+			zone.meanVelocity === null
+				? ZONE_RATE_MISSING
+				: formatMagnitude(zone.meanVelocity, "cm/año"),
+		date: extras.date,
+		people: extras.people === null ? null : peopleLabel(extras.people),
+		landUse: extras.landUse,
+		place: extras.place,
+		synthetic: extras.synthetic,
+		agriNote: IMPACT_AGRI_NOTE,
+	};
+}
+
+export function impactZoneRankScience(input: {
+	date: string | null;
+	zones: ImpactZoneScience[];
+	synthetic: boolean;
+}): ImpactZoneRankScience {
+	return {
+		date: input.date,
+		empty: input.zones.length === 0,
+		lines:
+			input.zones.length === 0
+				? [
+						`No hay zonas de hundimiento de al menos ${IMPACT_MIN_KM2} km² en esta fecha.`,
+					]
+				: [
+						`Hay ${input.zones.length} ${input.zones.length === 1 ? "zona" : "zonas"} de hundimiento en esta fecha. Se listan hasta ${MAX_LABELED_ZONES}.`,
+						`Cada zona mide al menos ${IMPACT_MIN_KM2} km².`,
+						...input.zones.map(zoneLine),
+					],
+		agriNote: IMPACT_AGRI_NOTE,
+		synthetic: input.synthetic,
+	};
+}
+
+const foldQuestion = (question: string) =>
+	question.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/** Pregunta por las zonas de hundimiento de todo el mapa, no por el punto. */
+export function isZoneRankQuestion(question: string): boolean {
+	const text = foldQuestion(question);
+	return /\bzona/.test(text) && /(hundid|desplaz)/.test(text);
+}
+
+/** Texto que lee la persona: las mismas cifras del ranking, sin el modelo. */
+export function impactZoneRankAnswer(rank: ImpactZoneRankScience): string {
+	if (rank.empty) {
+		return [rank.date && `Fecha: ${rank.date}.`, ...rank.lines, rank.agriNote]
+			.filter((part): part is string => Boolean(part))
+			.join(" ");
+	}
+	const listed = rank.lines.filter((line) => /^\d+\.\s/.test(line));
+	const rest = rank.lines.filter((line) => !/^\d+\.\s/.test(line));
+	const lead = rank.date
+		? `En ${rank.date} estas son las zonas del mapa con más hundimiento, de más a menos:`
+		: "Estas son las zonas del mapa con más hundimiento, de más a menos:";
+	return [
+		lead,
+		...listed.map((line) => `- ${line.replace(/^\d+\.\s/, "")}`),
+		...rest,
+		rank.agriNote,
+	]
+		.filter((part): part is string => Boolean(part))
+		.join("\n");
 }

@@ -3,6 +3,10 @@ import { AGRI_COPY } from "./agriculture";
 import {
 	type AgriScience,
 	type CellScience,
+	type ImpactZoneRankScience,
+	type ImpactZoneScience,
+	impactBandNotes,
+	impactZoneRankAnswer,
 	type LayerScience,
 	type MeasurementScience,
 	NO_DATA_NOTE,
@@ -140,6 +144,8 @@ export function readingPacket(input: {
 	cells: CellScience[];
 	methods: PacketMethod[];
 	agriZone: AgriScience | null;
+	motionZones?: ImpactZoneScience[];
+	motionRank?: ImpactZoneRankScience | null;
 	events: PacketEvent[];
 	places: PacketPlace[];
 	cropLabels: readonly string[];
@@ -227,6 +233,48 @@ export function readingPacket(input: {
 				]),
 				false,
 				input.agriZone.label,
+			),
+		);
+	}
+	input.motionZones?.forEach((zone, index) => {
+		records.push(
+			recordOf(
+				`zona-mov-${index}`,
+				"measurement",
+				lines([
+					`Zona de movimiento ${zone.rank}`,
+					zone.band,
+					`Extremo: ${zone.displacement}`,
+					`Área: ${zone.areaKm2}`,
+					`Velocidad media: ${zone.rate}`,
+					zone.date && `Fecha: ${zone.date}`,
+					zone.place,
+					zone.people,
+					zone.landUse && `Principalmente ${zone.landUse.toLowerCase()}`,
+					zone.agriNote,
+				]),
+				false,
+				`Zona de movimiento ${zone.rank}`,
+			),
+		);
+	});
+	records.push(
+		recordOf(
+			"zonas-umbrales",
+			"method",
+			lines(["Cómo se arman las zonas de hundimiento", ...impactBandNotes()]),
+			false,
+			"Zonas de hundimiento",
+		),
+	);
+	if (input.motionRank) {
+		records.push(
+			recordOf(
+				"zonas-desplazamiento",
+				"measurement",
+				impactZoneRankAnswer(input.motionRank),
+				false,
+				"Zonas de hundimiento",
 			),
 		);
 	}

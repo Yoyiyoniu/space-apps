@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { Layer, Region } from "../manifest";
+import { Band } from "./impact";
 import {
 	ASSISTANT_COPY,
 	agriZoneScience,
 	cellScience,
 	dateRangeLabel,
 	formatMagnitude,
+	IMPACT_AGRI_NOTE,
+	impactBandNotes,
+	impactZoneRankAnswer,
+	impactZoneRankScience,
+	impactZoneScience,
+	isZoneRankQuestion,
 	layerScience,
 	measurementScience,
 	NO_DATA_NOTE,
 	SYNTHETIC_NOTE,
+	ZONE_RATE_MISSING,
 } from "./science";
 
 const continuous = {
@@ -202,6 +210,138 @@ describe("measurementScience", () => {
 	});
 });
 
+describe("impactBandNotes", () => {
+	it("declara los umbrales de banda", () => {
+		const notes = impactBandNotes().join(" ");
+		expect(notes).toContain("-10.0");
+		expect(notes).toContain("10, 5 y 2");
+	});
+});
+
+describe("impactZoneScience", () => {
+	const zone = {
+		band: Band.HIGH,
+		valueCm: -12.04,
+		areaKm2: 9,
+		meanVelocity: -4.2,
+	};
+
+	it("copia banda, extremo, área y nota de cultivos", () => {
+		const record = impactZoneScience(zone, {
+			rank: 1,
+			date: "2025-10-25",
+			people: 1234,
+			landUse: "Cultivos",
+			place: "A 1.2 km de Cerro Prieto",
+			synthetic: true,
+		});
+		expect(record.band).toBe("Hundimiento alto");
+		expect(record.displacement).toBe("-12.0\u00a0cm");
+		expect(record.areaKm2).toBe("9.00\u00a0km²");
+		expect(record.rate).toBe("-4.2\u00a0cm/año");
+		expect(record.people).toBe("≈ 1200 personas");
+		expect(record.place).toBe("A 1.2 km de Cerro Prieto");
+		expect(record.synthetic).toBe(true);
+		expect(record.agriNote).toBe(IMPACT_AGRI_NOTE);
+		expect(JSON.stringify(record)).not.toContain("cells");
+	});
+
+	it("sin velocidad usa la frase fija", () => {
+		const record = impactZoneScience(
+			{ ...zone, meanVelocity: null },
+			{
+				rank: 1,
+				date: null,
+				people: null,
+				landUse: null,
+				place: null,
+				synthetic: false,
+			},
+		);
+		expect(record.rate).toBe(ZONE_RATE_MISSING);
+		expect(record.people).toBeNull();
+	});
+});
+
+describe("impactZoneRankScience", () => {
+	it("lista las zonas ya ordenadas", () => {
+		const first = impactZoneScience(
+			{
+				band: Band.HIGH,
+				valueCm: -12,
+				areaKm2: 9,
+				meanVelocity: -4,
+			},
+			{
+				rank: 1,
+				date: "2025-10-25",
+				people: null,
+				landUse: "Cultivos",
+				place: "Sobre Cerro Prieto",
+				synthetic: true,
+			},
+		);
+		const rank = impactZoneRankScience({
+			date: "2025-10-25",
+			zones: [first],
+			synthetic: true,
+		});
+		expect(rank.empty).toBe(false);
+		expect(rank.lines[0]).toContain("1 zona");
+		expect(rank.lines[0]).toContain("hasta 5");
+		expect(rank.lines[1]).toContain("1 km²");
+		expect(rank.lines.join(" ")).toContain("-12.0");
+		expect(rank.lines.join(" ")).toContain("Sobre Cerro Prieto");
+		expect(rank.agriNote).toBe(IMPACT_AGRI_NOTE);
+		expect(rank.synthetic).toBe(true);
+	});
+
+	it("sin zonas no inventa un extremo", () => {
+		const rank = impactZoneRankScience({
+			date: "2025-10-01",
+			zones: [],
+			synthetic: false,
+		});
+		expect(rank.empty).toBe(true);
+		expect(rank.lines[0]).toContain("1 km²");
+		expect(rank.lines.join()).not.toContain("cm");
+	});
+
+	it("arma la lista que lee la persona", () => {
+		const first = impactZoneScience(
+			{
+				band: Band.HIGH,
+				valueCm: -12,
+				areaKm2: 9,
+				meanVelocity: -4,
+			},
+			{
+				rank: 1,
+				date: "2025-10-25",
+				people: null,
+				landUse: null,
+				place: "Sobre Cerro Prieto",
+				synthetic: true,
+			},
+		);
+		const text = impactZoneRankAnswer(
+			impactZoneRankScience({
+				date: "2025-10-25",
+				zones: [first],
+				synthetic: true,
+			}),
+		);
+		expect(text).toContain("más hundimiento");
+		expect(text).toContain("-12.0");
+		expect(text).toContain("Sobre Cerro Prieto");
+		expect(text).not.toContain(SYNTHETIC_NOTE);
+		expect(isZoneRankQuestion(ASSISTANT_COPY.askPrompts[0])).toBe(true);
+		expect(isZoneRankQuestion("¿Qué significan los colores del mapa?")).toBe(
+			false,
+		);
+	});
+});
+
 describe("agriZoneScience", () => {
 	it("incluye umbrales y límites de la zona", () => {
 		const record = agriZoneScience({
@@ -227,5 +367,10 @@ describe("avisos", () => {
 		expect(ASSISTANT_COPY.unverified).toContain("No muestro");
 		expect(ASSISTANT_COPY.unavailable).toContain("No puedo responder");
 		expect(ASSISTANT_COPY.failed).toContain("No se pudo producir");
+		expect(ASSISTANT_COPY.askTitle).toContain("mediciones");
+		expect(ASSISTANT_COPY.askDescription).toContain("Escribe aquí tu pregunta");
+		expect(ASSISTANT_COPY.askPlaceholder).toBe("Escribe aquí tu pregunta");
+		expect(ASSISTANT_COPY.askPrompts[0]).toContain("hundido más");
+		expect(ASSISTANT_COPY.noZoneRank).toContain("ranking");
 	});
 });
