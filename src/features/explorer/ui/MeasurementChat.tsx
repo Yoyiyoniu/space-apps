@@ -1,6 +1,6 @@
 import { useSelector } from "@tanstack/react-store";
-import { MessageSquare } from "lucide-react";
-import { useMemo, useReducer, useState } from "react";
+import { GripVertical, MessageSquare } from "lucide-react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
 	Conversation,
 	ConversationContent,
@@ -107,23 +107,45 @@ async function readAskStream(
 	}
 }
 
+const CHAT_DEFAULT = 384;
+const CHAT_MIN = 256;
+const CHAT_MAX = 960;
+
+const chatLimits = () => {
+	const view = window.innerWidth;
+	const min = Math.min(CHAT_MIN, Math.round(view * 0.42));
+	const max = Math.max(min, Math.min(CHAT_MAX, Math.round(view * 0.72)));
+	return { min, max };
+};
+
+const clampChatWidth = (value: number) => {
+	const { min, max } = chatLimits();
+	return Math.round(Math.min(max, Math.max(min, value)));
+};
+
+const initialChatWidth = () =>
+	clampChatWidth(Math.min(CHAT_DEFAULT, window.innerWidth * 0.42));
+
 const SuggestedPrompts = ({
 	asked,
 	disabled,
+	limit,
 	onPick,
 }: {
 	asked: readonly string[];
 	disabled: boolean;
+	limit?: number;
 	onPick: (question: string) => void;
 }) => {
 	const used = new Set(asked.map((question) => question.trim().toLowerCase()));
 	const remaining = ASSISTANT_COPY.askPrompts.filter(
 		(question) => !used.has(question.trim().toLowerCase()),
 	);
-	if (remaining.length === 0) return null;
+	const shown = limit === undefined ? remaining : remaining.slice(0, limit);
+	if (shown.length === 0) return null;
 	return (
 		<ul className="flex w-full flex-col gap-1.5 text-left">
-			{remaining.map((question) => (
+			{shown.map((question) => (
 				<li key={question}>
 					<button
 						className="w-full rounded-md border border-white/10 bg-slate-950/40 px-2.5 py-1.5 text-left text-xs leading-snug text-slate-200 transition-colors hover:bg-slate-800 disabled:pointer-events-none disabled:opacity-50"
@@ -179,6 +201,53 @@ export const MeasurementChat = ({
 	);
 	const [thread, dispatch] = useReducer(chatReducer, initialChatState);
 	const [draft, setDraft] = useState("");
+	const [width, setWidth] = useState(initialChatWidth);
+	const widthRef = useRef(width);
+	widthRef.current = width;
+	const limits = chatLimits();
+
+	useEffect(() => {
+		const clamp = () => setWidth((current) => clampChatWidth(current));
+		window.addEventListener("resize", clamp);
+		return () => window.removeEventListener("resize", clamp);
+	}, []);
+
+	const startResize = (event: React.PointerEvent<HTMLHRElement>) => {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		const handle = event.currentTarget;
+		const originX = event.clientX;
+		const originWidth = widthRef.current;
+		handle.setPointerCapture(event.pointerId);
+		const onMove = (ev: PointerEvent) => {
+			const next = clampChatWidth(originWidth + ev.clientX - originX);
+			widthRef.current = next;
+			setWidth(next);
+		};
+		const onUp = () => {
+			handle.removeEventListener("pointermove", onMove);
+			handle.removeEventListener("pointerup", onUp);
+			handle.removeEventListener("pointercancel", onUp);
+		};
+		handle.addEventListener("pointermove", onMove);
+		handle.addEventListener("pointerup", onUp);
+		handle.addEventListener("pointercancel", onUp);
+	};
+
+	const resizeByKey = (event: React.KeyboardEvent<HTMLHRElement>) => {
+		const step = event.shiftKey ? 80 : 32;
+		if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+		event.preventDefault();
+		const delta = event.key === "ArrowRight" ? step : -step;
+		setWidth((current) => clampChatWidth(current + delta));
+	};
+
+	const toggleWide = () => {
+		const { max } = chatLimits();
+		setWidth((current) =>
+			current >= max - 24 ? initialChatWidth() : clampChatWidth(max),
+		);
+	};
 	const records = useMemo(() => {
 		const series =
 			timelineLayer && cube && probe
@@ -263,7 +332,8 @@ export const MeasurementChat = ({
 	return (
 		<Panel
 			aria-label="Conversación sobre las mediciones"
-			className="flex h-full min-h-0 w-[min(24rem,42vw)] min-w-64 shrink-0 flex-col overflow-hidden"
+			className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden"
+			style={{ width }}
 		>
 			<Conversation
 				aria-live="polite"
@@ -271,7 +341,7 @@ export const MeasurementChat = ({
 				aria-busy={thread.pending}
 				className="min-h-0"
 			>
-				<ConversationContent className="gap-3 p-3 text-sm leading-relaxed">
+				<ConversationContent className="gap-3 p-3 pr-4 text-sm leading-relaxed">
 					{thread.messages.length === 0 ? (
 						<ConversationEmptyState className="p-4">
 							<MessageSquare className="size-8 text-muted-foreground" />
@@ -326,6 +396,7 @@ export const MeasurementChat = ({
 											.filter((message) => message.role === "user")
 											.map((message) => message.text)}
 										disabled={false}
+										limit={2}
 										onPick={send}
 									/>
 								</div>
@@ -335,7 +406,7 @@ export const MeasurementChat = ({
 				</ConversationContent>
 				<ConversationScrollButton />
 			</Conversation>
-			<PromptInput className="p-2" onSubmit={onSubmit}>
+			<PromptInput className="py-2 pr-5 pl-2" onSubmit={onSubmit}>
 				<PromptInputBody>
 					<PromptInputTextarea
 						aria-label={ASSISTANT_COPY.askPlaceholder}
@@ -352,6 +423,25 @@ export const MeasurementChat = ({
 					/>
 				</PromptInputFooter>
 			</PromptInput>
+			<div className="group absolute inset-y-0 right-0 z-20 w-4">
+				<hr
+					aria-label="Agrandar el chat"
+					aria-orientation="vertical"
+					aria-valuemax={limits.max}
+					aria-valuemin={limits.min}
+					aria-valuenow={width}
+					className="m-0 h-full w-full cursor-ew-resize touch-none border-0 bg-transparent outline-none hover:bg-white/10 focus-visible:bg-white/10"
+					onDoubleClick={toggleWide}
+					onKeyDown={resizeByKey}
+					onPointerDown={startResize}
+					tabIndex={0}
+					title="Arrastra para agrandar el chat. Doble clic lo lleva al máximo."
+				/>
+				<GripVertical
+					aria-hidden
+					className="pointer-events-none absolute top-1/2 right-0 size-4 -translate-y-1/2 text-slate-500 group-hover:text-slate-100"
+				/>
+			</div>
 		</Panel>
 	);
 };
