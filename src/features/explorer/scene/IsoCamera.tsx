@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { pickTerrain } from "../lib/pick";
-import { useFlight } from "./flight";
+import { aimAt, useFlight } from "./flight";
 import { MAP_SCALE } from "./terrainGeometry";
 
 // Isométrico verdadero: azimut 45°, elevación atan(1/√2) ≈ 35.264°.
@@ -92,8 +92,7 @@ export function IsoCamera({
 				DISTANCE * 2.5,
 			);
 			if (hit) {
-				flight.target = hit;
-				flight.tap = hit;
+				aimAt(flight, hit.col, hit.row);
 				pickRef.current(hit.col, hit.row);
 			}
 		};

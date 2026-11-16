@@ -50,6 +50,30 @@ export function useFlight(): Flight {
 	return flight;
 }
 
+/** Objetivo nuevo por clic: no arrastra inercia contraria al rumbo. */
+export function aimAt(f: Flight, col: number, row: number) {
+	const prev = f.target;
+	f.target = { col, row };
+	f.tap = { col, row };
+	if (prev && (prev.col !== col || prev.row !== row)) {
+		const ex = col - f.col;
+		const ez = row - f.row;
+		const dist = Math.hypot(ex, ez);
+		if (dist > 0.2) {
+			const nx = ex / dist;
+			const nz = ez / dist;
+			const along = f.vx * nx + f.vz * nz;
+			if (along <= 0) {
+				f.vx = 0;
+				f.vz = 0;
+			} else {
+				f.vx = nx * along;
+				f.vz = nz * along;
+			}
+		}
+	}
+}
+
 /** Coloca la nave en un punto, en reposo, sobre el terreno. */
 export function teleport(f: Flight, col: number, row: number) {
 	f.col = col;

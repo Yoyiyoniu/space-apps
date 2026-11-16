@@ -667,10 +667,10 @@ function ExplorerScene() {
 	}, [region, landData.data, waterways]);
 	const selectedAgri =
 		agriMap?.zones.find((zone) => zone.id === state.agriZoneId) ?? null;
-	useEffect(() => {
-		if (!selectedAgri) return;
-		flight.target = { col: selectedAgri.col, row: selectedAgri.row };
-	}, [selectedAgri, flight]);
+	const flyToAgriZone = (id: number) => {
+		const zone = agriMap?.zones.find((item) => item.id === id);
+		if (zone) flight.target = { col: zone.col, row: zone.row };
+	};
 	const inspectQueries = useQueries({
 		queries: (region?.layers ?? [])
 			.filter((layer) => layer.type === "raster")
@@ -1184,11 +1184,13 @@ function ExplorerScene() {
 												setCompareRejected(false);
 												setSelectedPoiId(null);
 												store.actions.setAgriZone(id);
+												flyToAgriZone(id);
 											}}
 											onCompare={(id) => {
 												if (state.agriZoneId === null) {
 													setCompareRejected(false);
 													store.actions.setAgriZone(id);
+													flyToAgriZone(id);
 													return;
 												}
 												const next = withComparison(

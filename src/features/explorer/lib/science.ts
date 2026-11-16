@@ -38,11 +38,12 @@ export const ASSISTANT_COPY = {
 	takenFrom: "Datos tomados de",
 	askTitle: "Consulta las mediciones",
 	askDescription:
-		"Escribe aquí tu pregunta sobre el hundimiento, la fecha o el punto que estás viendo.",
+		"Escribe aquí tu pregunta sobre el hundimiento, cómo cambió entre fechas o meses, o el punto que estás viendo.",
 	askPlaceholder: "Escribe aquí tu pregunta",
 	askMore: "También puedes preguntar",
 	askPrompts: [
 		"De todo el mapa, ¿cuáles zonas se han hundido más?",
+		"¿Cuánto cambió el hundimiento de un mes a otro en este punto?",
 		"¿Cuánto se movió el suelo en este punto?",
 		"¿Qué significan los colores del mapa?",
 		"¿De dónde salen estos datos?",

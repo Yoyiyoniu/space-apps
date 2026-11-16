@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFlight, EDGE_MARGIN, stepFlight } from "./flight";
+import { aimAt, createFlight, EDGE_MARGIN, stepFlight } from "./flight";
 
 const still = { dx: 0, dz: 0, boost: false };
 
@@ -42,5 +42,29 @@ describe("stepFlight", () => {
 		f.target = { col: 90, row: 90 };
 		stepFlight(f, { dx: 0, dz: -1, boost: false }, 1 / 60);
 		expect(f.target).toBeNull();
+	});
+});
+
+describe("aimAt", () => {
+	it("corta la velocidad si el nuevo clic queda detrás", () => {
+		const f = flight();
+		f.target = { col: 80, row: 50 };
+		f.vx = 12;
+		f.vz = 0;
+		aimAt(f, 30, 50);
+		expect(f.target).toEqual({ col: 30, row: 50 });
+		expect(f.vx).toBe(0);
+		expect(f.vz).toBe(0);
+	});
+
+	it("conserva la componente hacia el nuevo objetivo", () => {
+		const f = flight();
+		f.col = 50;
+		f.row = 50;
+		f.vx = 10;
+		f.vz = 0;
+		aimAt(f, 80, 50);
+		expect(f.vx).toBeCloseTo(10);
+		expect(f.vz).toBeCloseTo(0);
 	});
 });

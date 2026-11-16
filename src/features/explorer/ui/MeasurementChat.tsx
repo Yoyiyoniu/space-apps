@@ -26,6 +26,7 @@ import { TREND_LABELS, trendLevel } from "../lib/friendly";
 import { sampleBilinear } from "../lib/grid";
 import { CROP_VARIANTS } from "../lib/mapModels";
 import { linearRate, readSeries } from "../lib/probe";
+import { probeTemporalText } from "../lib/temporal";
 import { readingPacket } from "../lib/readingPacket";
 import {
 	type AgriScience,
@@ -255,8 +256,13 @@ export const MeasurementChat = ({
 				: null;
 		const rate =
 			series && timelineLayer ? linearRate(series, timelineLayer.dates) : null;
+		const temporalText =
+			series && timelineLayer
+				? probeTemporalText(series, timelineLayer.dates, dispIndex)
+				: null;
 		return readingPacket({
 			layers: region.layers.map(layerScience),
+			temporalText,
 			measurement: measurementScience({
 				probe,
 				series,

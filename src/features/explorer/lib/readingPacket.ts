@@ -141,6 +141,7 @@ const cellText = (cell: CellScience) =>
 export function readingPacket(input: {
 	layers: LayerScience[];
 	measurement: MeasurementScience | null;
+	temporalText: string | null;
 	cells: CellScience[];
 	methods: PacketMethod[];
 	agriZone: AgriScience | null;
@@ -159,6 +160,17 @@ export function readingPacket(input: {
 				measurementText(input.measurement),
 				input.measurement.synthetic,
 				"Medición de este punto",
+			),
+		);
+	}
+	if (input.temporalText) {
+		records.push(
+			recordOf(
+				"medicion-serie",
+				"measurement",
+				input.temporalText,
+				input.measurement?.synthetic ?? false,
+				"Serie y comparaciones en este punto",
 			),
 		);
 	}

@@ -5,6 +5,7 @@ import { AGRI_COPY } from "./agriculture";
 import { Band } from "./impact";
 import { CROP_VARIANTS } from "./mapModels";
 import { PACKET_TEXT_MAX, readingPacket, sourceParts } from "./readingPacket";
+import { probeTemporalText } from "./temporal";
 import {
 	cellScience,
 	IMPACT_AGRI_NOTE,
@@ -69,6 +70,7 @@ describe("readingPacket", () => {
 		const records = readingPacket({
 			layers: [layerScience(layer)],
 			measurement,
+			temporalText: null,
 			cells: [],
 			methods: [],
 			agriZone: null,
@@ -92,6 +94,7 @@ describe("readingPacket", () => {
 			readingPacket({
 				layers: [],
 				measurement,
+				temporalText: null,
 				cells: [],
 				methods: [],
 				agriZone: null,
@@ -114,6 +117,7 @@ describe("readingPacket", () => {
 			readingPacket({
 				layers: [],
 				measurement,
+				temporalText: null,
 				cells: [],
 				methods: [],
 				agriZone: null,
@@ -144,6 +148,7 @@ describe("readingPacket", () => {
 		const text = readingPacket({
 			layers: [],
 			measurement: null,
+			temporalText: null,
 			cells: [missing],
 			methods: [],
 			agriZone: null,
