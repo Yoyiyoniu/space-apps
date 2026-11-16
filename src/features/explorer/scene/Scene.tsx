@@ -11,6 +11,8 @@ import type { CropId, MapModel } from "../lib/mapModels";
 import type { Layer, Region } from "../manifest";
 import type { ExplorerStore } from "../store";
 import { AgriculturalOutline } from "./AgriculturalOutline";
+import { ClickPulse } from "./ClickPulse";
+import type { ClickMark } from "./clickMarks";
 import { EjidoMarkers } from "./EjidoMarkers";
 import { EjidoOutlines } from "./EjidoOutlines";
 import { useFlight } from "./flight";
@@ -91,6 +93,10 @@ export interface SceneProps {
 	bands: Uint8Array | null;
 	bandPalette: string[];
 	contour: boolean;
+	onPick: (col: number, row: number) => void;
+	/** Clics ya dados. Cada uno dibuja un pulso y deja una cruz negra. */
+	clickMarks: readonly ClickMark[];
+	onClickMarkExpire: (id: number) => void;
 	overlays: Array<{
 		id: string;
 		kind: "road" | "canal" | "river";
@@ -146,6 +152,7 @@ export function Scene(props: SceneProps) {
 			<IsoCamera
 				regionSize={Math.max(region.width, region.height)}
 				reducedMotion={props.reducedMotion}
+				onPick={props.onPick}
 			/>
 			<Terrain
 				region={region}
@@ -220,6 +227,12 @@ export function Scene(props: SceneProps) {
 				zones={props.zones}
 				heightAt={props.heightAt}
 				labels={props.zoneLabels}
+			/>
+			<ClickPulse
+				marks={props.clickMarks}
+				heightAt={props.heightAt}
+				reducedMotion={props.reducedMotion}
+				onExpire={props.onClickMarkExpire}
 			/>
 			<MapModels
 				models={props.mapModels}

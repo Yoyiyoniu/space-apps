@@ -35,6 +35,7 @@ import {
 	waterBeside,
 	waterLines,
 	withComparison,
+	zoneAt,
 } from "./lib/agriculture";
 import {
 	buildCatalog,
@@ -75,6 +76,7 @@ import {
 import { fillForDisplay, robustLimit, velocityField } from "./lib/stats";
 import { waterDateIndex, waterMask } from "./lib/water";
 import type { Overlay, Poi, Region } from "./manifest";
+import { type ClickMark, pushClickMark } from "./scene/clickMarks";
 import { createFlight, FlightContext, teleport } from "./scene/flight";
 import { PaintMode } from "./scene/layerMaterial";
 import { Scene } from "./scene/Scene";
@@ -216,6 +218,8 @@ function ExplorerScene() {
 	const compact = useIsCompact();
 	const keys = useKeyboard();
 	const [scienceOpen, setScienceOpen] = useState<ScienceMenuId | null>(null);
+	const [clickMarks, setClickMarks] = useState<ClickMark[]>([]);
+	const clickSeq = useRef(0);
 	const [modelFocus, setModelFocus] = useState<CropId | null>(null);
 	const [compareRejected, setCompareRejected] = useState(false);
 	const labels = useRef(new Map<string, HTMLElement>());
@@ -227,6 +231,10 @@ function ExplorerScene() {
 	const region =
 		manifest.data?.regions.find((r) => r.id === state.regionId) ?? null;
 	const terrain = useQuery(terrainQuery(region));
+	const regionId = region?.id ?? null;
+	useEffect(() => {
+		setClickMarks([]);
+	}, [regionId]);
 
 	// Capa de desplazamiento: base del movimiento y del hundimiento 3D.
 	const timelineLayer = displacementLayer(region);
@@ -865,6 +873,19 @@ function ExplorerScene() {
 				wayHit?.overlayId === overlay.id ? wayHit.feature : null,
 			),
 		}));
+	const onPick = (col: number, row: number) => {
+		setClickMarks((marks) =>
+			pushClickMark(marks, clickSeq.current++, col, row, performance.now()),
+		);
+		setSelectedPoiId(null);
+		store.actions.setInspected({ col, row });
+		setScienceOpen("punto");
+		if (!agriMap || !landData.data) return;
+		const zone = zoneAt(agriMap, landData.data, region.width, col, row);
+		if (!zone) return;
+		setCompareRejected(false);
+		store.actions.setAgriZone(zone.id);
+	};
 	const goToEvent = (event: ImpactEvent) => {
 		const next = catalog.find((entry) => entry.view === eventView(event.type));
 		if (next) {
@@ -947,6 +968,13 @@ function ExplorerScene() {
 								bands={rasterBands ?? zoneData?.bands ?? null}
 								bandPalette={raster ? bandPalette : BAND_COLORS}
 								contour={!raster}
+								onPick={onPick}
+								clickMarks={clickMarks}
+								onClickMarkExpire={(id) =>
+									setClickMarks((marks) =>
+										marks.filter((mark) => mark.id !== id),
+									)
+								}
 								overlays={sceneOverlays}
 								ejidos={ejidos.data ?? []}
 								ejidoLabels={ejidoLabels}
@@ -1031,7 +1059,7 @@ function ExplorerScene() {
 							events={events.data ?? []}
 							places={region.pois}
 						/>
-						<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 sm:gap-3">
+						<div className="flex min-h-0 min-w-0 flex-1 flex-col items-end gap-2 sm:gap-3">
 							<ScienceMenuBar
 								items={scienceItems}
 								openId={scienceOpen}
@@ -1040,7 +1068,7 @@ function ExplorerScene() {
 									<>
 										<Link
 											to="/data"
-											className="flex h-11 shrink-0 items-center rounded-xl border border-white/10 bg-slate-950/75 px-3 text-sm font-semibold text-slate-100 shadow-lg backdrop-blur-md hover:border-cyan-300/50 hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+											className="flex h-9 shrink-0 items-center rounded-lg border border-white/10 bg-slate-950/75 px-2.5 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur-md hover:border-cyan-300/50 hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:h-10 sm:px-3 sm:text-sm"
 										>
 											Datos
 										</Link>
