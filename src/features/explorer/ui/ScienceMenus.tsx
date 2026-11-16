@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import { Slider } from "#/components/ui/slider";
 import { Switch } from "#/components/ui/switch";
@@ -485,6 +486,12 @@ export const ProvenanceMenu = ({
 				Las plantas, las casas y los autos son figuras ilustrativas, no un
 				producto de satélite.
 			</p>
+			<Link
+				to="/data"
+				className="inline-flex text-sm font-semibold text-cyan-300 underline decoration-dotted underline-offset-2 hover:text-cyan-200"
+			>
+				Descargar datasets
+			</Link>
 		</div>
 	);
 };

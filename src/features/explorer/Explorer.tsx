@@ -1,5 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useSelector } from "@tanstack/react-store";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1035,7 +1036,17 @@ function ExplorerScene() {
 								items={scienceItems}
 								openId={scienceOpen}
 								onOpen={setScienceOpen}
-								trailing={<ControlsHint compact={compact} />}
+								trailing={
+									<>
+										<Link
+											to="/data"
+											className="flex h-11 shrink-0 items-center rounded-xl border border-white/10 bg-slate-950/75 px-3 text-sm font-semibold text-slate-100 shadow-lg backdrop-blur-md hover:border-cyan-300/50 hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+										>
+											Datos
+										</Link>
+										<ControlsHint compact={compact} />
+									</>
+								}
 								headingExtra={{
 									punto: inspected
 										? `${inspectLat.toFixed(4)}°, ${inspectLon.toFixed(4)}°`
