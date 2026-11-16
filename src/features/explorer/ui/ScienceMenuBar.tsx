@@ -58,11 +58,11 @@ export const ScienceMenuBar = ({
 	const extra = openId ? headingExtra?.[openId] : undefined;
 
 	return (
-		<div className="pointer-events-auto ml-auto flex w-full max-w-[20rem] flex-col items-stretch gap-2 sm:max-w-[22rem]">
-			<div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+		<div className="pointer-events-auto ml-auto flex w-full min-w-0 flex-col items-end gap-2">
+			<div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5">
 				<nav
 					aria-label="Fichas científicas"
-					className="flex w-max max-w-full justify-end gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+					className="flex max-w-full flex-wrap justify-end gap-1.5"
 				>
 					{items.map((item) => {
 						const expanded = openId === item.id;
@@ -94,7 +94,7 @@ export const ScienceMenuBar = ({
 					id={`science-panel-${openItem.id}`}
 					role="region"
 					aria-labelledby={`science-heading-${openItem.id}`}
-					className="science-sheet w-full p-1.5 sm:p-2"
+					className="science-sheet w-full max-w-[22rem] p-1.5 sm:p-2"
 				>
 					<div className="flex items-start justify-between gap-2 px-1.5 pt-0.5 sm:px-2 sm:pt-1">
 						<h2
