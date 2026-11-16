@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Datos · Valle de Mexicali</title>
+		<style>
+			:root {
+				color-scheme: dark;
+			}
+			body {
+				margin: 0;
+				min-height: 100dvh;
+				background: #05070f;
+				color: #f1f5f9;
+				font: 16px/1.5 system-ui, sans-serif;
+			}
+			main {
+				max-width: 42rem;
+				margin: 0 auto;
+				padding: 2.5rem 1rem;
+			}
+			a {
+				color: #67e8f9;
+				font-weight: 600;
+				text-decoration: none;
+			}
+			a:hover {
+				color: #a5f3fc;
+			}
+			h1 {
+				margin: 0.75rem 0 0.35rem;
+				font-size: 1.5rem;
+			}
+			h2 {
+				margin: 0 0 0.75rem;
+				font-size: 1.125rem;
+			}
+			.lead,
+			.muted {
+				color: #94a3b8;
+				font-size: 0.875rem;
+			}
+			.guide,
+			.files {
+				border: 1px solid rgb(255 255 255 / 0.1);
+				border-radius: 0.75rem;
+			}
+			.guide {
+				padding: 1rem;
+				margin: 1.5rem 0;
+			}
+			ol {
+				margin: 0;
+				padding-left: 1.25rem;
+				color: #cbd5e1;
+				font-size: 0.875rem;
+			}
+			li + li {
+				margin-top: 0.5rem;
+			}
+			code {
+				color: #a5f3fc;
+				font-size: 0.85em;
+			}
+			pre {
+				overflow-x: auto;
+				padding: 0.75rem;
+				border-radius: 0.5rem;
+				background: rgb(0 0 0 / 0.5);
+				color: #e2e8f0;
+				font-size: 0.75rem;
+				line-height: 1.45;
+			}
+			.note {
+				margin: 0.75rem 0 0;
+				color: #64748b;
+				font-size: 0.75rem;
+			}
+			button,
+			.dl {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				height: 2.75rem;
+				padding: 0 0.75rem;
+				border-radius: 0.75rem;
+				border: 1px solid rgb(255 255 255 / 0.1);
+				font-weight: 600;
+				cursor: pointer;
+			}
+			#all {
+				width: 100%;
+				margin-bottom: 1rem;
+				background: #22d3ee;
+				color: #020617;
+			}
+			.files {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+			}
+			.files li {
+				display: flex;
+				justify-content: space-between;
+				gap: 0.75rem;
+				align-items: center;
+				padding: 0.75rem;
+				border-top: 1px solid rgb(255 255 255 / 0.1);
+			}
+			.files li:first-child {
+				border-top: 0;
+			}
+			.files p {
+				margin: 0;
+			}
+			.files .detail {
+				color: #94a3b8;
+				font-size: 0.75rem;
+			}
+			.dl {
+				height: auto;
+				padding: 0.5rem 0.75rem;
+				flex-shrink: 0;
+			}
+			.error {
+				color: #fca5a5;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<p><a href="/">← Visualizador</a></p>
+			<h1>Datos</h1>
+			<p class="lead">
+				Archivos estáticos del Valle de Mexicali. Empieza por el manifiesto; el
+				resto son rasters y JSON listos para bajar.
+			</p>
+			<section class="guide">
+				<h2>Guía rápida</h2>
+				<ol>
+					<li>
+						Abre <code>manifest.json</code>. Ahí están el bbox, el tamaño de
+						celda, las fechas, <code>scale</code>, <code>nodata</code> (−32768) y
+						los créditos. No hace falta adivinar unidades.
+					</li>
+					<li>
+						Los <code>.bin</code> son Int16 little-endian, fila-mayor, fila 0 al
+						norte. <code>terrain.bin</code> es altura × ancho en metros. Cada
+						<code>cube.bin</code> es fechas × altura × ancho. El hundimiento está
+						guardado en mm: multiplica por <code>scale</code> (0.1) para cm.
+					</li>
+					<li>
+						Caminos, canales, ríos, ejidos y eventos son JSON. Sirven para Excel
+						o GIS; el cubo de radar no cabe bien en una hoja.
+					</li>
+					<li>
+						Mira <code>source</code> en cada capa. Si dice
+						<code>synthetic</code>, no es una medición NISAR.
+					</li>
+				</ol>
+				<p style="margin: 1rem 0 0.4rem; font-weight: 600">Python</p>
+				<pre>import json, numpy as np
+
+m = json.load(open("manifest.json"))
+r = m["regions"][0]
+h, w = r["height"], r["width"]
+dem = np.fromfile("mexicali/terrain.bin", dtype="&lt;i2").reshape(h, w)
+
+capa = next(l for l in r["layers"] if l["id"] == "subsidence")
+raw = np.fromfile("mexicali/subsidence/cube.bin", dtype="&lt;i2")
+cube = raw.reshape(len(capa["dates"]), h, w)
+cm = np.where(cube == capa["nodata"], np.nan, cube * capa["scale"])</pre>
+				<p class="note">
+					Celda (col, fila) con origen en la esquina noroeste. El centro de la
+					celda (i, j) está en (i + 0.5, j + 0.5). Créditos: NISAR NASA/JPL-Caltech
+					e ISRO (ASF DAAC); DEM Copernicus GLO-30.
+				</p>
+			</section>
+			<p id="status" class="muted">Cargando manifiesto…</p>
+			<button id="all" hidden type="button">Descargar todo</button>
+			<ul id="list" class="files"></ul>
+		</main>
+		<script>
+			const BASE = "/data";
+			const status = document.getElementById("status");
+			const list = document.getElementById("list");
+			const allBtn = document.getElementById("all");
+
+			function rowsFromManifest(m) {
+				const rows = [
+					{
+						href: `${BASE}/manifest.json`,
+						download: "manifest.json",
+						label: "Manifiesto",
+						detail: "Contrato: grilla, fechas, unidades y créditos",
+					},
+				];
+				for (const region of m.regions) {
+					rows.push({
+						href: `${BASE}/${region.terrain.path}`,
+						download: region.terrain.path.replaceAll("/", "-"),
+						label: `Relieve · ${region.name}`,
+						detail: `${region.width} × ${region.height} · Int16 LE · ${region.terrain.units}`,
+					});
+					for (const layer of region.layers) {
+						const dates = layer.dates?.length
+							? `${layer.dates.length} fechas`
+							: "una banda";
+						rows.push({
+							href: `${BASE}/${layer.path}`,
+							download: layer.path.replaceAll("/", "-"),
+							label: layer.name,
+							detail: `${dates} · Int16 LE · ${layer.units} · escala ${layer.scale}`,
+						});
+					}
+					for (const overlay of region.overlays ?? []) {
+						rows.push({
+							href: `${BASE}/${overlay.path}`,
+							download: overlay.path.replaceAll("/", "-"),
+							label: overlay.name,
+							detail: "JSON",
+						});
+					}
+					if (region.events) {
+						rows.push({
+							href: `${BASE}/${region.events}`,
+							download: region.events.replaceAll("/", "-"),
+							label: "Eventos",
+							detail: "JSON",
+						});
+					}
+				}
+				return rows;
+			}
+
+			async function downloadAll(files) {
+				for (const file of files) {
+					const res = await fetch(file.href);
+					if (!res.ok) continue;
+					const blob = await res.blob();
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement("a");
+					a.href = url;
+					a.download = file.download;
+					a.click();
+					URL.revokeObjectURL(url);
+				}
+			}
+
+			fetch(`${BASE}/manifest.json`)
+				.then((r) => {
+					if (!r.ok) throw new Error("manifest");
+					return r.json();
+				})
+				.then((m) => {
+					const files = rowsFromManifest(m);
+					status.hidden = true;
+					allBtn.hidden = false;
+					allBtn.onclick = () => downloadAll(files);
+					for (const file of files) {
+						const li = document.createElement("li");
+						li.innerHTML = `<div><p>${file.label}</p><p class="detail">${file.detail}</p></div>`;
+						const a = document.createElement("a");
+						a.className = "dl";
+						a.href = file.href;
+						a.download = file.download;
+						a.textContent = "Bajar";
+						li.append(a);
+						list.append(li);
+					}
+				})
+				.catch(() => {
+					status.className = "error";
+					status.textContent = "No se pudo leer el manifiesto.";
+				});
+		</script>
+	</body>
+</html>

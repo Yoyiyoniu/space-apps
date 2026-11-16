@@ -12,13 +12,26 @@ import { nitro } from 'nitro/vite'
  * En dev, Nitro comprime al vuelo con brotli a calidad máxima cada archivo de public/: el cubo
  * de ~9 MB tardaba ~25 s en cada carga. En local no aporta nada, así que /data va sin comprimir.
  */
+function serveDataIndex(req: { url?: string; headers: Record<string, unknown> }, next: () => void) {
+  delete req.headers['accept-encoding']
+  const path = (req.url ?? '').split('?')[0]
+  if (path === '' || path === '/' || path === '/data' || path === '/data/') {
+    req.url = path.startsWith('/data') ? '/data/index.html' : '/index.html'
+  }
+  next()
+}
+
 const rawDataInDev: Plugin = {
   name: 'raw-data-in-dev',
   enforce: 'pre',
   configureServer(server) {
     server.middlewares.use('/data', (req, _res, next) => {
-      delete req.headers['accept-encoding']
-      next()
+      serveDataIndex(req, next)
+    })
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use('/data', (req, _res, next) => {
+      serveDataIndex(req, next)
     })
   },
 }
